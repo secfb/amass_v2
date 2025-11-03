@@ -65,14 +65,14 @@ func (r *autsys) lookup(e *et.Event, num string, since time.Time) *dbt.Entity {
 }
 
 func (r *autsys) query(e *et.Event, asset *dbt.Entity) (*dbt.Entity, *rdap.Autnum) {
-	as := asset.Asset.(*network.AutonomousSystem)
-	req := rdap.NewAutnumRequest(uint32(as.Number))
+	_ = r.plugin.rlimit.Wait(context.TODO())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	req = req.WithContext(ctx)
 
-	_ = r.plugin.rlimit.Wait(context.TODO())
+	as := asset.Asset.(*network.AutonomousSystem)
+	req := rdap.NewAutnumRequest(uint32(as.Number)).WithContext(ctx)
+
 	resp, err := r.plugin.client.Do(req)
 	if err != nil {
 		return nil, nil

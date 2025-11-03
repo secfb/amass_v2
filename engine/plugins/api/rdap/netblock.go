@@ -66,19 +66,18 @@ func (nb *netblock) lookup(e *et.Event, cidr string, since time.Time) *dbt.Entit
 }
 
 func (nb *netblock) query(e *et.Event, asset *dbt.Entity) (*dbt.Entity, *rdap.IPNetwork) {
-	n := asset.Asset.(*network.Netblock)
+	_ = nb.plugin.rlimit.Wait(context.TODO())
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	n := asset.Asset.(*network.Netblock)
 	_, ipnet, err := net.ParseCIDR(n.CIDR.String())
 	if err != nil {
 		return nil, nil
 	}
-	req := rdap.NewIPNetRequest(ipnet)
+	req := rdap.NewIPNetRequest(ipnet).WithContext(ctx)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	_ = nb.plugin.rlimit.Wait(context.TODO())
 	resp, err := nb.plugin.client.Do(req)
 	if err != nil {
 		return nil, nil
