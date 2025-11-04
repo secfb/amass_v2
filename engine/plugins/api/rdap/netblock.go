@@ -68,7 +68,7 @@ func (nb *netblock) lookup(e *et.Event, cidr string, since time.Time) *dbt.Entit
 func (nb *netblock) query(e *et.Event, asset *dbt.Entity) (*dbt.Entity, *rdap.IPNetwork) {
 	_ = nb.plugin.rlimit.Wait(context.TODO())
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	n := asset.Asset.(*network.Netblock)

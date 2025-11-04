@@ -167,7 +167,10 @@ func AssetMonitoredWithinTTL(session et.Session, asset *dbt.Entity, src *et.Sour
 		return false
 	}
 
-	if tags, err := session.DB().FindEntityTags(context.Background(), asset, since, "last_monitored"); err == nil && len(tags) > 0 {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	if tags, err := session.DB().FindEntityTags(ctx, asset, since, "last_monitored"); err == nil && len(tags) > 0 {
 		for _, tag := range tags {
 			if tag.Property.Value() == src.Name {
 				return true
