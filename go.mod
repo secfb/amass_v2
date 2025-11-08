@@ -3,7 +3,7 @@ module github.com/owasp-amass/amass/v5
 go 1.25
 
 require (
-	github.com/99designs/gqlgen v0.17.81
+	github.com/99designs/gqlgen v0.17.82
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/adrg/strutil v0.3.1
@@ -25,7 +25,7 @@ require (
 	github.com/miekg/dns v1.1.68
 	github.com/nyaruka/phonenumbers v1.6.6
 	github.com/openrdap/rdap v0.9.1
-	github.com/owasp-amass/asset-db v0.23.2-0.20251107184544-e69e204cbc13
+	github.com/owasp-amass/asset-db v0.23.2-0.20251108031255-3b6129de2324
 	github.com/owasp-amass/open-asset-model v0.15.0
 	github.com/owasp-amass/resolve v0.9.7-0.20250325214539-07077e8c54af
 	github.com/samber/slog-common v0.19.0
