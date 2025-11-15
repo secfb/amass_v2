@@ -5,7 +5,6 @@
 package dispatcher
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -36,7 +35,12 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 		pi.parent.incSessionQueued(sid, 1)
 	}
 
-	pi.ap.Queue.Append(et.NewEventDataElement(e))
+	e.Dispatcher = pi.parent.dis
+	data := et.NewEventDataElement(e)
+	_ = e.Session.Queue().Processed(e.Entity)
+	data.Queue = pi.parent.dis.cchan
+	data.Ref = pi // optional: keep a ref to the instance
+	pi.ap.Queue.Append(data)
 	return nil
 }
 
@@ -57,6 +61,7 @@ func (pi *pipelineInstance) queueLen() int64 {
 
 type pipelinePool struct {
 	log     *slog.Logger
+	dis     *dynamicDispatcher
 	reg     et.Registry
 	eventTy oam.AssetType
 
@@ -76,7 +81,7 @@ type pipelinePool struct {
 	lastScale time.Time
 }
 
-func newPipelinePool(l *slog.Logger, reg et.Registry, eventTy oam.AssetType, min, max int) *pipelinePool {
+func newPipelinePool(l *slog.Logger, dis *dynamicDispatcher, reg et.Registry, eventTy oam.AssetType, min, max int) *pipelinePool {
 	if min <= 0 {
 		min = 1
 	}
@@ -85,6 +90,7 @@ func newPipelinePool(l *slog.Logger, reg et.Registry, eventTy oam.AssetType, min
 	}
 	return &pipelinePool{
 		log:              l,
+		dis:              dis,
 		reg:              reg,
 		eventTy:          eventTy,
 		minInstances:     min,
@@ -223,39 +229,11 @@ func (p *pipelinePool) createInstanceLocked() *pipelineInstance {
 	p.instances[id] = inst
 	p.ring.Add(id)
 
-	go p.runInstance(inst)
-
 	p.log.Info("created pipeline instance",
 		"atype", p.eventTy,
 		"id", id,
 	)
-
 	return inst
-}
-
-func (p *pipelinePool) runInstance(inst *pipelineInstance) {
-	ctx := context.Background()
-
-	for inst.ap.Queue.Next(ctx) {
-		ede, _ := inst.ap.Queue.Data().(*et.EventDataElement)
-
-		if ede == nil || ede.Event == nil {
-			continue
-		}
-		if err := p.runHandler(ede.Event); err != nil {
-			ede.Error = err
-		}
-
-		inst.onDequeue(ede.Event)
-	}
-}
-
-// runHandler: hook this into your actual pipeline execution logic.
-// TODO: wire this into the real pipeline.Pipeline execution.
-func (p *pipelinePool) runHandler(e *et.Event) error {
-	// Placeholder: you likely don't do anything here if your pipeline
-	// already pulls from Queue and runs handlers; tweak as needed.
-	return nil
 }
 
 // incSessionQueued tracks total queued items for a session across instances.
@@ -409,7 +387,7 @@ func fallbackShardKey(e *et.Event) string {
 	if e == nil || e.Entity == nil {
 		return ""
 	}
-	return e.Entity.ID.String() // adjust to your entity ID type
+	return e.Entity.ID
 }
 
 // assetKeyOf returns a stable per-asset key used to choose a bucket
@@ -433,5 +411,5 @@ func assetKeyOf(e *et.Event) string {
 	//       return e.Entity.ID.String()
 	//   }
 
-	return e.Entity.ID.String()
+	return e.Entity.ID
 }

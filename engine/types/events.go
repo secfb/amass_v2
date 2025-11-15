@@ -44,6 +44,7 @@ type EventDataElement struct {
 	Event *Event
 	Error error
 	Queue chan *EventDataElement
+	Ref   any
 }
 
 func NewEventDataElement(e *Event) *EventDataElement {
