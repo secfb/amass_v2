@@ -28,7 +28,7 @@ type txtHandler struct {
 }
 
 func (r *txtHandler) check(e *et.Event) error {
-	since, err := support.TTLStartTime(e.Session.Config(), "FQDN", "FQDN", r.plugin.name)
+	since, err := support.TTLStartTime(e.Session.Config(), "FQDN", "Organization", r.plugin.name)
 	if err != nil {
 		return err
 	}

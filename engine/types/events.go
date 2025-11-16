@@ -43,7 +43,7 @@ type Asset struct {
 type EventDataElement struct {
 	Event *Event
 	Error error
-	Queue chan *EventDataElement
+	Exit  chan *EventDataElement
 	Ref   any
 }
 

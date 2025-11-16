@@ -113,7 +113,7 @@ func (j *jarmPlugin) query(e *et.Event) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if edges, err := e.Session.DB().IncomingEdges(ctx, e.Entity, e.Session.StartTime(), "port"); err == nil && len(edges) > 0 {
+	if edges, err := e.Session.DB().IncomingEdges(ctx, e.Entity, e.Session.StartTime()); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
 			portrel, ok := edge.Relation.(*general.PortRelation)
 			if !ok {
@@ -122,7 +122,7 @@ func (j *jarmPlugin) query(e *et.Event) {
 			if a, err := e.Session.DB().FindEntityById(ctx, edge.FromEntity.ID); err == nil && a != nil {
 				switch a.Asset.(type) {
 				case *oamdns.FQDN:
-					if portrel.Protocol == "https" {
+					if portrel.Protocol == "tcp" {
 						t := &fingerprint{
 							asset: e.Entity,
 							port:  edge,
@@ -130,7 +130,7 @@ func (j *jarmPlugin) query(e *et.Event) {
 						targets = append([]*fingerprint{t}, targets...)
 					}
 				case *network.IPAddress:
-					if portrel.Protocol == "https" {
+					if portrel.Protocol == "tcp" {
 						targets = append(targets, &fingerprint{
 							asset: e.Entity,
 							port:  edge,
@@ -159,7 +159,7 @@ func (j *jarmPlugin) query(e *et.Event) {
 }
 
 func (j *jarmPlugin) store(e *et.Event, fps []*fingerprint) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	for _, fp := range fps {

@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"time"
 
+	"command-line-arguments/Users/caffix/repos/amass/engine/plugins/support/support.go"
+
 	"github.com/miekg/dns"
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	"github.com/owasp-amass/amass/v5/engine/sessions/scope"
@@ -60,7 +62,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 	if err := r.RegisterHandler(&et.Handler{
 		Plugin:       h,
 		Name:         h.horfqdn.name,
-		Priority:     6,
+		Priority:     10,
 		MaxInstances: support.MaxHandlerInstances,
 		Transforms:   []string{string(oam.FQDN)},
 		EventType:    oam.FQDN,
@@ -74,11 +76,13 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		plugin: h,
 	}
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     h,
-		Name:       h.horContact.name,
-		Transforms: []string{string(oam.ContactRecord)},
-		EventType:  oam.ContactRecord,
-		Callback:   h.horContact.check,
+		Plugin:       h,
+		Name:         h.horContact.name,
+		Priority:     10,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{string(oam.ContactRecord)},
+		EventType:    oam.ContactRecord,
+		Callback:     h.horContact.check,
 	}); err != nil {
 		return err
 	}

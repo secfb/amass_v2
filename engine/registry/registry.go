@@ -15,7 +15,7 @@ import (
 
 type registry struct {
 	sync.RWMutex
-	logger    *slog.Logger
+	log       *slog.Logger
 	handlers  map[string]map[int][]*et.Handler
 	pipelines map[string]*et.AssetPipeline
 }
@@ -23,14 +23,14 @@ type registry struct {
 // Create a new instance of Registry.
 func NewRegistry(l *slog.Logger) et.Registry {
 	return &registry{
-		logger:    l,
+		log:       l,
 		handlers:  make(map[string]map[int][]*et.Handler),
 		pipelines: make(map[string]*et.AssetPipeline),
 	}
 }
 
 func (r *registry) Log() *slog.Logger {
-	return r.logger
+	return r.log
 }
 
 // Register a Plugin Handler on the registry.
@@ -60,12 +60,10 @@ loop:
 		return err
 	}
 
-	if h.Priority == 0 {
-		h.Priority = 5
-	} else if h.Priority < 0 {
+	if h.Priority <= 0 {
 		h.Priority = 1
-	} else if h.Priority > 9 {
-		h.Priority = 9
+	} else if h.Priority > 50 {
+		h.Priority = 50
 	}
 
 	et, p := string(h.EventType), h.Priority

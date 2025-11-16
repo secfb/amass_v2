@@ -68,7 +68,7 @@ func (r *ipaddrEndpoint) check(e *et.Event) error {
 		r.process(e, findings)
 	}
 
-	go support.IPAddressSweep(e, ip, src, 25, sweepCallback)
+	support.IPAddressSweep(e, ip, src, 25, sweepCallback)
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (r *ipaddrEndpoint) lookup(e *et.Event, ip *dbt.Entity, since time.Time) []
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if edges, err := e.Session.DB().OutgoingEdges(ctx, ip, since, "port"); err == nil && len(edges) > 0 {
+	if edges, err := e.Session.DB().OutgoingEdges(ctx, ip, since); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
 			if _, err := e.Session.DB().FindEdgeTags(ctx, edge, since, r.plugin.source.Name); err != nil {
 				continue

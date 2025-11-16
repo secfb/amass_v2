@@ -20,7 +20,6 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/general"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
-	oamreg "github.com/owasp-amass/open-asset-model/registration"
 )
 
 type ipNetblock struct {
@@ -98,7 +97,7 @@ func (d *ipNetblock) lookup(e *et.Event) error {
 		if entry != nil {
 			break
 		}
-		time.Sleep(time.Second)
+		time.Sleep(250 * time.Millisecond)
 	}
 	if entry == nil {
 		return nil
@@ -122,7 +121,7 @@ func (d *ipNetblock) store(e *et.Event, entry *sessions.CIDRangerEntry) (*dbt.En
 		netblock.Type = "IPv6"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	nb, err := e.Session.DB().CreateAsset(ctx, netblock)
@@ -224,30 +223,7 @@ func (d *ipNetblock) reservedAS(e *et.Event, netblock *oamnet.Netblock) {
 		Confidence: d.source.Confidence,
 	})
 
-	autnum, err := e.Session.DB().CreateAsset(ctx, &oamreg.AutnumRecord{
-		Number: 0,
-		Handle: "AS0",
-		Name:   "Reserved Network Address Blocks",
-	})
-	if err != nil || autnum == nil {
-		return
-	}
-
 	edge, err := e.Session.DB().CreateEdge(ctx, &dbt.Edge{
-		Relation:   &general.SimpleRelation{Name: "registration"},
-		FromEntity: asn,
-		ToEntity:   autnum,
-	})
-	if err != nil || edge == nil {
-		return
-	}
-
-	_, _ = e.Session.DB().CreateEdgeProperty(ctx, edge, &general.SourceProperty{
-		Source:     d.source.Name,
-		Confidence: d.source.Confidence,
-	})
-
-	edge, err = e.Session.DB().CreateEdge(ctx, &dbt.Edge{
 		Relation:   &general.SimpleRelation{Name: "announces"},
 		FromEntity: asn,
 		ToEntity:   nb,

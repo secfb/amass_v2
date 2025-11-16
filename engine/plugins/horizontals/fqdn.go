@@ -164,7 +164,7 @@ func (h *horfqdn) lookup(e *et.Event, asset *dbt.Entity, conf int) []*scope.Asso
 }
 
 func (h *horfqdn) store(e *et.Event, asset oam.Asset) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	a, err := e.Session.DB().CreateAsset(ctx, asset)

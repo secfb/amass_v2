@@ -46,11 +46,13 @@ func (bu *bannerURLs) Start(r et.Registry) error {
 	bu.log = r.Log().WithGroup("plugin").With("name", bu.name)
 
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     bu,
-		Name:       bu.name + "-Handler",
-		Transforms: []string{string(oam.URL)},
-		EventType:  oam.Service,
-		Callback:   bu.check,
+		Plugin:       bu,
+		Name:         bu.name + "-Handler",
+		Priority:     10,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{string(oam.URL)},
+		EventType:    oam.Service,
+		Callback:     bu.check,
 	}); err != nil {
 		return err
 	}
@@ -98,14 +100,14 @@ func (bu *bannerURLs) query(e *et.Event, asset *dbt.Entity) []*dbt.Entity {
 	// TODO: in the future, further investigation of out of scope URLs may be needed
 	if urls := support.ExtractURLsFromString(serv.Output); len(urls) > 0 {
 		for _, u := range urls {
-			if addr, err := netip.ParseAddr(u.Host); err == nil {
+			if u.Host == "" {
+				continue
+			} else if addr, err := netip.ParseAddr(u.Host); err == nil {
 				if _, conf := e.Session.Scope().IsAssetInScope(&oamnet.IPAddress{Address: addr}, 0); conf > 0 {
 					results = append(results, u)
 				}
-			} else {
-				if _, conf := e.Session.Scope().IsAssetInScope(&oamdns.FQDN{Name: u.Host}, 0); conf > 0 {
-					results = append(results, u)
-				}
+			} else if _, conf := e.Session.Scope().IsAssetInScope(&oamdns.FQDN{Name: u.Host}, 0); conf > 0 {
+				results = append(results, u)
 			}
 		}
 	}

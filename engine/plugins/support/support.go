@@ -28,9 +28,14 @@ import (
 	xurls "mvdan.cc/xurls/v2"
 )
 
-type SweepCallback func(d *et.Event, addr *oamnet.IPAddress, src *et.Source)
+const (
+	MinHandlerInstances  int = 4
+	MidHandlerInstances  int = 16
+	HighHandlerInstances int = 32
+	MaxHandlerInstances  int = 64
+)
 
-const MaxHandlerInstances int = 100
+type SweepCallback func(d *et.Event, addr *oamnet.IPAddress, src *et.Source)
 
 var done chan struct{}
 var subre, urlre *regexp.Regexp

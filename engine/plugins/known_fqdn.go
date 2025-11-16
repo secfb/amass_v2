@@ -40,7 +40,7 @@ func (d *knownFQDN) Start(r et.Registry) error {
 	if err := r.RegisterHandler(&et.Handler{
 		Plugin:       d,
 		Name:         d.name + "-Handler",
-		Priority:     7,
+		Priority:     11,
 		MaxInstances: support.MaxHandlerInstances,
 		Transforms:   []string{string(oam.FQDN)},
 		EventType:    oam.FQDN,

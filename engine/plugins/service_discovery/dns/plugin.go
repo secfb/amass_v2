@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	et "github.com/owasp-amass/amass/v5/engine/types"
+	"github.com/owasp-amass/engine/plugins/support"
 	oam "github.com/owasp-amass/open-asset-model"
 )
 
@@ -42,12 +43,13 @@ func (p *dnsPlugin) Start(r et.Registry) error {
 	}
 
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     p,
-		Name:       p.txt.name,
-		Priority:   9,
-		Transforms: []string{string(oam.FQDN)},
-		EventType:  oam.FQDN,
-		Callback:   p.txt.check,
+		Plugin:       p,
+		Name:         p.txt.name,
+		Priority:     12,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{string(oam.Organization)},
+		EventType:    oam.FQDN,
+		Callback:     p.txt.check,
 	}); err != nil {
 		p.log.Error("failed to register handler", "error", err)
 		return err

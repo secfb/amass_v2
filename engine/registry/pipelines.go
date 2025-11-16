@@ -21,7 +21,7 @@ func (r *registry) BuildPipelines() error {
 	defer r.Unlock()
 
 	for k := range r.handlers {
-		p, err := r.buildAssetPipeline(string(k))
+		p, err := r.BuildAssetPipeline(string(k))
 		if err != nil {
 			return err
 		}
@@ -30,11 +30,11 @@ func (r *registry) BuildPipelines() error {
 	return nil
 }
 
-func (r *registry) buildAssetPipeline(atype string) (*et.AssetPipeline, error) {
+func (r *registry) BuildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 	var stages []pipeline.Stage
 
 	bufsize := 1
-	for priority := 1; priority <= 9; priority++ {
+	for priority := 1; priority <= 50; priority++ {
 		handlers, found := r.handlers[atype][priority]
 		if !found || len(handlers) == 0 {
 			continue
@@ -72,7 +72,7 @@ func (r *registry) buildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 
 	go func(p *et.AssetPipeline) {
 		if err := p.Pipeline.ExecuteBuffered(context.TODO(), p.Queue, makeSink(), bufsize); err != nil {
-			r.logger.Error(fmt.Sprintf("Pipeline terminated: %v", err), "OAM type", atype)
+			r.Log().Error(fmt.Sprintf("Pipeline terminated: %v", err), "OAM type", atype)
 		}
 	}(ap)
 	return ap, nil
@@ -84,8 +84,7 @@ func makeSink() pipeline.SinkFunc {
 		if !ok {
 			return errors.New("pipeline sink failed to extract the EventDataElement")
 		}
-
-		ede.Queue <- ede
+		ede.Exit <- ede
 		return nil
 	})
 }
@@ -108,11 +107,11 @@ func handlerTask(h *et.Handler) pipeline.TaskFunc {
 
 		select {
 		case <-ctx.Done():
-			ede.Queue <- ede
+			ede.Exit <- ede
 			return nil, nil
 		default:
 			if ede.Event.Session.Done() {
-				ede.Queue <- ede
+				ede.Exit <- ede
 				return nil, nil
 			}
 		}
