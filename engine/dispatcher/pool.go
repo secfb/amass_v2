@@ -37,8 +37,7 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 
 	e.Dispatcher = pi.parent.dis
 	data := et.NewEventDataElement(e)
-	_ = e.Session.Queue().Processed(e.Entity)
-	data.Queue = pi.parent.dis.cchan
+	data.Exit = pi.parent.dis.cchan
 	data.Ref = pi // optional: keep a ref to the instance
 	pi.ap.Queue.Append(data)
 	return nil
@@ -207,10 +206,9 @@ func (p *pipelinePool) createInstanceLocked() *pipelineInstance {
 		return nil
 	}
 
-	// NOTE: adjust this if you decide to clone *Pipeline vs share it.
-	ap, err := p.reg.GetPipeline(p.eventTy)
+	ap, err := p.reg.BuildAssetPipeline(string(p.eventTy))
 	if err != nil {
-		p.log.Error("GetPipeline failed", "atype", p.eventTy, "err", err)
+		p.log.Error("BuildAssetPipeline failed", "atype", p.eventTy, "err", err)
 		return nil
 	}
 

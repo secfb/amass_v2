@@ -43,11 +43,13 @@ func (ee *emailexpand) Start(r et.Registry) error {
 	ee.log = r.Log().WithGroup("plugin").With("name", ee.name)
 
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     ee,
-		Name:       ee.name,
-		Transforms: []string{string(oam.FQDN)},
-		EventType:  oam.Identifier,
-		Callback:   ee.check,
+		Plugin:       ee,
+		Name:         ee.name,
+		Priority:     15,
+		MaxInstances: support.MidHandlerInstances,
+		Transforms:   []string{string(oam.FQDN)},
+		EventType:    oam.Identifier,
+		Callback:     ee.check,
 	}); err != nil {
 		return err
 	}

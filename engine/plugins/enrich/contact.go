@@ -51,12 +51,13 @@ func (cr *contactrec) Start(r et.Registry) error {
 	cr.log = r.Log().WithGroup("plugin").With("name", cr.name)
 
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     cr,
-		Name:       cr.name,
-		Priority:   1,
-		Transforms: cr.transforms,
-		EventType:  oam.ContactRecord,
-		Callback:   cr.check,
+		Plugin:       cr,
+		Name:         cr.name,
+		Priority:     10,
+		MaxInstances: support.MidHandlerInstances,
+		Transforms:   cr.transforms,
+		EventType:    oam.ContactRecord,
+		Callback:     cr.check,
 	}); err != nil {
 		return err
 	}

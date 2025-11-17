@@ -31,6 +31,10 @@ func (d *dnsTXT) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
+	if support.HasDNSRecordType(e, int(dns.TypeCNAME)) {
+		return nil
+	}
+
 	since, err := support.TTLStartTime(e.Session.Config(), "FQDN", "FQDN", d.plugin.name)
 	if err != nil {
 		return err

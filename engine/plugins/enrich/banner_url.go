@@ -49,7 +49,7 @@ func (bu *bannerURLs) Start(r et.Registry) error {
 		Plugin:       bu,
 		Name:         bu.name + "-Handler",
 		Priority:     10,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MidHandlerInstances,
 		Transforms:   []string{string(oam.URL)},
 		EventType:    oam.Service,
 		Callback:     bu.check,

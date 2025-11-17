@@ -78,6 +78,8 @@ func (d *dynamicDispatcher) completedCallback(data interface{}) {
 		return
 	}
 
+	_ = ede.Event.Session.Queue().Processed(ede.Event.Entity)
+
 	if inst, ok := ede.Ref.(*pipelineInstance); ok {
 		inst.onDequeue(ede.Event)
 	}
@@ -103,7 +105,7 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 		return nil
 	}
 
-	err := e.Session.Queue().Append(e.Entity)
+	err := e.Session.Queue().Append(e.Entity, false)
 	if err != nil {
 		return err
 	}

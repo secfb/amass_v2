@@ -64,11 +64,13 @@ func (te *tlsexpand) Start(r et.Registry) error {
 	te.log = r.Log().WithGroup("plugin").With("name", te.name)
 
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     te,
-		Name:       te.name,
-		Transforms: te.transforms,
-		EventType:  oam.TLSCertificate,
-		Callback:   te.check,
+		Plugin:       te,
+		Name:         te.name,
+		Priority:     10,
+		MaxInstances: support.MidHandlerInstances,
+		Transforms:   te.transforms,
+		EventType:    oam.TLSCertificate,
+		Callback:     te.check,
 	}); err != nil {
 		return err
 	}
@@ -154,7 +156,7 @@ func (te *tlsexpand) lookup(e *et.Event, asset *dbt.Entity, m *config.Matches) [
 				continue
 			}
 
-			if !te.oneOfSources(e, edge, te.source, since) {
+			if !te.oneOfSources(ctx, e, edge, te.source, since) {
 				continue
 			}
 
@@ -172,10 +174,7 @@ func (te *tlsexpand) lookup(e *et.Event, asset *dbt.Entity, m *config.Matches) [
 	return findings
 }
 
-func (te *tlsexpand) oneOfSources(e *et.Event, edge *dbt.Edge, src *et.Source, since time.Time) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
+func (te *tlsexpand) oneOfSources(ctx context.Context, e *et.Event, edge *dbt.Edge, src *et.Source, since time.Time) bool {
 	if tags, err := e.Session.DB().FindEdgeTags(ctx, edge, since, src.Name); err == nil && len(tags) > 0 {
 		for _, tag := range tags {
 			if _, ok := tag.Property.(*general.SourceProperty); ok {

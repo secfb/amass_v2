@@ -38,7 +38,7 @@ type Session interface {
 
 type SessionQueue interface {
 	Has(e *dbt.Entity) bool
-	Append(e *dbt.Entity) error
+	Append(e *dbt.Entity, processed bool) error
 	Next(atype oam.AssetType, num int) ([]*dbt.Entity, error)
 	Processed(e *dbt.Entity) error
 	Delete(e *dbt.Entity) error

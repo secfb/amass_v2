@@ -54,7 +54,14 @@ func (r *netblock) check(e *et.Event) error {
 
 	nb, as := r.lookup(e, e.Entity, since)
 	if nb == nil || as == nil {
-		nb, as = r.query(e, e.Entity)
+		r.plugin.Lock()
+
+		// re-check the asset database in case another handler added the netblock
+		nb, as = r.lookup(e, e.Entity, since)
+		if nb == nil || as == nil {
+			nb, as = r.query(e, e.Entity)
+		}
+		r.plugin.Unlock()
 	}
 
 	if nb != nil && as != nil {
@@ -66,7 +73,6 @@ func (r *netblock) check(e *et.Event) error {
 					Src: r.plugin.source,
 				})
 			}
-
 			r.process(e, e.Entity, nb, as)
 		}
 	}

@@ -125,7 +125,7 @@ func (d *dnsReverse) query(e *et.Event, ipstr string, ptr *dbt.Entity) []*relRev
 func (d *dnsReverse) store(e *et.Event, ptr *dbt.Entity, rr []dns.RR) []*relRev {
 	var rev []*relRev
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// additional validation of the PTR record

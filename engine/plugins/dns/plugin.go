@@ -33,7 +33,7 @@ type dnsPlugin struct {
 	secondSweepSize int
 	maxSweepSize    int
 	source          *et.Source
-	apexLock        sync.Mutex
+	apexLock        sync.RWMutex
 	apexList        map[string]*dbt.Entity
 }
 
@@ -57,19 +57,6 @@ func (d *dnsPlugin) Name() string {
 
 func (d *dnsPlugin) Start(r et.Registry) error {
 	d.log = r.Log().WithGroup("plugin").With("name", d.name)
-
-	d.apex = &dnsApex{name: d.name + "-Apex", plugin: d}
-	if err := r.RegisterHandler(&et.Handler{
-		Plugin:       d,
-		Name:         d.apex.name,
-		Priority:     5,
-		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{string(oam.FQDN)},
-		EventType:    oam.FQDN,
-		Callback:     d.apex.check,
-	}); err != nil {
-		return err
-	}
 
 	cname := d.name + "-CNAME"
 	d.cname = &dnsCNAME{
@@ -114,31 +101,32 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 		return err
 	}
 
-	d.reverse = NewReverse(d)
-	if err := r.RegisterHandler(&et.Handler{
-		Plugin:       d,
-		Name:         d.reverse.name,
-		Priority:     8,
-		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{string(oam.FQDN)},
-		EventType:    oam.IPAddress,
-		Callback:     d.reverse.check,
-	}); err != nil {
-		return err
-	}
-
 	d.subs = NewSubs(d)
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     d,
-		Name:       d.subs.name,
-		Priority:   4,
-		Transforms: []string{string(oam.FQDN)},
-		EventType:  oam.FQDN,
-		Callback:   d.subs.check,
+		Plugin:       d,
+		Name:         d.subs.name,
+		Priority:     7,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{string(oam.FQDN)},
+		EventType:    oam.FQDN,
+		Callback:     d.subs.check,
 	}); err != nil {
 		return err
 	}
 	go d.subs.releaseSessions()
+
+	d.apex = &dnsApex{name: d.name + "-Apex", plugin: d}
+	if err := r.RegisterHandler(&et.Handler{
+		Plugin:       d,
+		Name:         d.apex.name,
+		Priority:     8,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{string(oam.FQDN)},
+		EventType:    oam.FQDN,
+		Callback:     d.apex.check,
+	}); err != nil {
+		return err
+	}
 
 	txtname := d.name + "-TXT"
 	d.txt = &dnsTXT{
@@ -152,11 +140,24 @@ func (d *dnsPlugin) Start(r et.Registry) error {
 	if err := r.RegisterHandler(&et.Handler{
 		Plugin:       d,
 		Name:         d.txt.name,
-		Priority:     1,
+		Priority:     9,
 		MaxInstances: support.MaxHandlerInstances,
 		Transforms:   []string{string(oam.FQDN)},
 		EventType:    oam.FQDN,
 		Callback:     d.txt.check,
+	}); err != nil {
+		return err
+	}
+
+	d.reverse = NewReverse(d)
+	if err := r.RegisterHandler(&et.Handler{
+		Plugin:       d,
+		Name:         d.reverse.name,
+		Priority:     8,
+		MaxInstances: support.HighHandlerInstances,
+		Transforms:   []string{string(oam.FQDN)},
+		EventType:    oam.IPAddress,
+		Callback:     d.reverse.check,
 	}); err != nil {
 		return err
 	}
@@ -264,8 +265,8 @@ func (d *dnsPlugin) addApex(name string, entity *dbt.Entity) {
 }
 
 func (d *dnsPlugin) getApex(name string) *dbt.Entity {
-	d.apexLock.Lock()
-	defer d.apexLock.Unlock()
+	d.apexLock.RLock()
+	defer d.apexLock.RUnlock()
 
 	if entity, found := d.apexList[name]; found {
 		return entity
@@ -274,8 +275,8 @@ func (d *dnsPlugin) getApex(name string) *dbt.Entity {
 }
 
 func (d *dnsPlugin) getApexList() []string {
-	d.apexLock.Lock()
-	defer d.apexLock.Unlock()
+	d.apexLock.RLock()
+	defer d.apexLock.RUnlock()
 
 	var results []string
 	for name := range d.apexList {

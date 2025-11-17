@@ -54,11 +54,13 @@ func (u *urlexpand) Start(r et.Registry) error {
 	u.log = r.Log().WithGroup("plugin").With("name", u.name)
 
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     u,
-		Name:       u.name,
-		Transforms: u.transforms,
-		EventType:  oam.URL,
-		Callback:   u.check,
+		Plugin:       u,
+		Name:         u.name,
+		Priority:     10,
+		MaxInstances: support.MidHandlerInstances,
+		Transforms:   u.transforms,
+		EventType:    oam.URL,
+		Callback:     u.check,
 	}); err != nil {
 		return err
 	}

@@ -243,8 +243,13 @@ func NameIPAddresses(session et.Session, name *oamdns.FQDN) []*oamnet.IPAddress 
 		return nil
 	}
 
+	since, err := TTLStartTime(session.Config(), string(oam.FQDN), string(oam.IPAddress), "")
+	if err != nil {
+		return nil
+	}
+
 	var results []*oamnet.IPAddress
-	if edges, err := session.DB().OutgoingEdges(ctx, fqdn, session.StartTime(), "dns_record"); err == nil && len(edges) > 0 {
+	if edges, err := session.DB().OutgoingEdges(ctx, fqdn, since, "dns_record"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
 			if rec, ok := edge.Relation.(*oamdns.BasicDNSRelation); ok && (rec.Header.RRType == 1 || rec.Header.RRType == 28) {
 				if to, err := session.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil {

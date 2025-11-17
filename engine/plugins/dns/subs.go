@@ -65,7 +65,7 @@ func NewSubs(p *dnsPlugin) *dnsSubs {
 }
 
 func (d *dnsSubs) check(e *et.Event) error {
-	fqdn, ok := e.Entity.Asset.(*oamdns.FQDN)
+	_, ok := e.Entity.Asset.(*oamdns.FQDN)
 	if !ok {
 		return errors.New("failed to extract the FQDN asset")
 	}
@@ -74,47 +74,39 @@ func (d *dnsSubs) check(e *et.Event) error {
 		return nil
 	}
 
-	dom := d.registered(e, fqdn.Name)
-	if dom == "" {
-		return nil
-	}
-
 	since, err := support.TTLStartTime(e.Session.Config(), "FQDN", "FQDN", d.plugin.name)
 	if err != nil {
 		return err
 	}
 
-	if names := d.traverse(e, dom, e.Entity, since); len(names) > 0 {
-		d.process(e, names)
+	if dom := d.registeredDomainName(e); dom != "" {
+		if names := d.traverse(e, dom, e.Entity, since); len(names) > 0 {
+			d.process(e, names)
+		}
 	}
 	return nil
 }
 
-func (d *dnsSubs) registered(e *et.Event, name string) string {
-	if a, conf := e.Session.Scope().IsAssetInScope(&oamdns.FQDN{Name: name}, 0); conf > 0 && a != nil {
+func (d *dnsSubs) registeredDomainName(e *et.Event) string {
+	fqdn := e.Entity.Asset.(*oamdns.FQDN)
+
+	if a, conf := e.Session.Scope().IsAssetInScope(fqdn, 0); conf > 0 && a != nil {
 		if fqdn, ok := a.(*oamdns.FQDN); ok {
 			return fqdn.Name
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	fqdn, err := e.Session.DB().FindOneEntityByContent(ctx, oam.FQDN, time.Time{}, dbt.ContentFilters{
-		"name": name,
-	})
-	if err != nil || fqdn == nil {
-		return ""
-	}
 
 	var rels []*dbt.Edge
 	// allow name servers and mail servers to be investigated like in-scope assets
-	if edges, err := e.Session.DB().IncomingEdges(ctx, fqdn, time.Time{}, "dns_record"); err == nil && len(edges) > 0 {
+	if edges, err := e.Session.DB().IncomingEdges(ctx, e.Entity, time.Time{}, "dns_record"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
-			if r, ok := edge.Relation.(*oamdns.PrefDNSRelation); ok {
-				if r.Header.RRType == int(dns.TypeNS) || r.Header.RRType == int(dns.TypeMX) {
-					rels = append(rels, edge)
-				}
+			if r, ok := edge.Relation.(*oamdns.BasicDNSRelation); ok && r.Header.RRType == int(dns.TypeNS) {
+				rels = append(rels, edge)
+			} else if r, ok := edge.Relation.(*oamdns.PrefDNSRelation); ok && r.Header.RRType == int(dns.TypeMX) {
+				rels = append(rels, edge)
 			}
 		}
 	}
@@ -133,7 +125,7 @@ func (d *dnsSubs) registered(e *et.Event, name string) string {
 		}
 	}
 	if inscope {
-		if dom, err := publicsuffix.EffectiveTLDPlusOne(name); err == nil {
+		if dom, err := publicsuffix.EffectiveTLDPlusOne(fqdn.Name); err == nil {
 			return dom
 		}
 	}
@@ -169,7 +161,7 @@ func (d *dnsSubs) traverse(e *et.Event, dom string, fqdn *dbt.Entity, since time
 func (d *dnsSubs) lookup(e *et.Event, subdomain string, since time.Time) []*relSubs {
 	var alias []*relSubs
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	fqdn, err := e.Session.DB().FindOneEntityByContent(ctx, oam.FQDN, time.Time{}, dbt.ContentFilters{
@@ -181,7 +173,7 @@ func (d *dnsSubs) lookup(e *et.Event, subdomain string, since time.Time) []*relS
 
 	n := fqdn.Asset.Key()
 	// Check for NS records within the since period
-	if assets := d.plugin.lookupWithinTTL(e.Session, n, oam.FQDN, since, oam.PrefDNSRelation, 2); len(assets) > 0 {
+	if assets := d.plugin.lookupWithinTTL(e.Session, n, oam.FQDN, since, oam.BasicDNSRelation, 2); len(assets) > 0 {
 		for _, a := range assets {
 			alias = append(alias, &relSubs{rtype: "dns_record", alias: fqdn, target: a})
 		}
@@ -243,7 +235,7 @@ func (d *dnsSubs) query(e *et.Event, subdomain string) []*relSubs {
 func (d *dnsSubs) store(e *et.Event, name string, rr []dns.RR) []*relSubs {
 	var alias []*relSubs
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	fqdn, err := e.Session.DB().CreateAsset(ctx, &oamdns.FQDN{Name: name})

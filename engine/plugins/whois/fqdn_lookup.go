@@ -60,7 +60,6 @@ func (r *fqdnLookup) check(e *et.Event) error {
 
 	if asset != nil {
 		r.process(e, record, e.Entity, asset)
-		r.waitForDomRecContacts(e, asset)
 	}
 	return nil
 }
@@ -150,25 +149,4 @@ func (r *fqdnLookup) process(e *et.Event, record *whoisparser.WhoisInfo, fqdn, d
 	fname := fqdn.Asset.(*oamdns.FQDN)
 	e.Session.Log().Info("relationship discovered", "from", fname.Name, "relation",
 		"registration", "to", name, slog.Group("plugin", "name", r.plugin.name, "handler", r.name))
-}
-
-func (r *fqdnLookup) waitForDomRecContacts(e *et.Event, dr *dbt.Entity) {
-	t := time.NewTimer(time.Minute)
-	defer t.Stop()
-	tick := time.NewTicker(10 * time.Second)
-	defer t.Stop()
-
-	for range tick.C {
-		select {
-		case <-t.C:
-			// stop after one minute of waiting
-			return
-		default:
-		}
-
-		rtypes := []string{"registrant_contact", "admin_contact", "technical_contact", "billing_contact"}
-		if edges, err := e.Session.DB().OutgoingEdges(context.Background(), dr, e.Session.StartTime(), rtypes...); err == nil && len(edges) > 0 {
-			return
-		}
-	}
 }

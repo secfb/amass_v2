@@ -98,12 +98,13 @@ func (rd *rdapPlugin) Start(r et.Registry) error {
 		plugin: rd,
 	}
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     rd,
-		Name:       rd.autsys.name,
-		Priority:   9,
-		Transforms: []string{string(oam.AutnumRecord)},
-		EventType:  oam.AutonomousSystem,
-		Callback:   rd.autsys.check,
+		Plugin:       rd,
+		Name:         rd.autsys.name,
+		Priority:     40,
+		MaxInstances: support.MinHandlerInstances,
+		Transforms:   []string{string(oam.AutnumRecord)},
+		EventType:    oam.AutonomousSystem,
+		Callback:     rd.autsys.check,
 	}); err != nil {
 		return err
 	}
@@ -123,12 +124,13 @@ func (rd *rdapPlugin) Start(r et.Registry) error {
 		},
 	}
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     rd,
-		Name:       rd.autnum.name,
-		Priority:   1,
-		Transforms: rd.autnum.transforms,
-		EventType:  oam.AutnumRecord,
-		Callback:   rd.autnum.check,
+		Plugin:       rd,
+		Name:         rd.autnum.name,
+		Priority:     10,
+		MaxInstances: support.MidHandlerInstances,
+		Transforms:   rd.autnum.transforms,
+		EventType:    oam.AutnumRecord,
+		Callback:     rd.autnum.check,
 	}); err != nil {
 		return err
 	}
@@ -138,12 +140,13 @@ func (rd *rdapPlugin) Start(r et.Registry) error {
 		plugin: rd,
 	}
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     rd,
-		Name:       rd.netblock.name,
-		Priority:   9,
-		Transforms: []string{string(oam.IPNetRecord)},
-		EventType:  oam.Netblock,
-		Callback:   rd.netblock.check,
+		Plugin:       rd,
+		Name:         rd.netblock.name,
+		Priority:     40,
+		MaxInstances: support.MinHandlerInstances,
+		Transforms:   []string{string(oam.IPNetRecord)},
+		EventType:    oam.Netblock,
+		Callback:     rd.netblock.check,
 	}); err != nil {
 		return err
 	}
@@ -163,12 +166,13 @@ func (rd *rdapPlugin) Start(r et.Registry) error {
 		},
 	}
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     rd,
-		Name:       rd.ipnet.name,
-		Priority:   1,
-		Transforms: rd.ipnet.transforms,
-		EventType:  oam.IPNetRecord,
-		Callback:   rd.ipnet.check,
+		Plugin:       rd,
+		Name:         rd.ipnet.name,
+		Priority:     10,
+		MaxInstances: support.MidHandlerInstances,
+		Transforms:   rd.ipnet.transforms,
+		EventType:    oam.IPNetRecord,
+		Callback:     rd.ipnet.check,
 	}); err != nil {
 		return err
 	}

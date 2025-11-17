@@ -85,6 +85,14 @@ func (r *QueueDB) Append(atype oam.AssetType, eid string) error {
 	}).Error
 }
 
+func (r *QueueDB) AppendAndMark(atype oam.AssetType, eid string) error {
+	return r.db.Create(&Element{
+		Type:      string(atype),
+		EntityID:  eid,
+		Processed: true,
+	}).Error
+}
+
 func (r *QueueDB) Next(atype oam.AssetType, num int) ([]string, error) {
 	var elements []Element
 	key := string(atype)

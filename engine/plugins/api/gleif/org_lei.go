@@ -22,7 +22,7 @@ import (
 )
 
 func (g *gleif) orgEntityToLEI(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	if edges, err := e.Session.DB().OutgoingEdges(ctx, orgent, time.Time{}, "id"); err == nil {
@@ -38,7 +38,7 @@ func (g *gleif) orgEntityToLEI(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 }
 
 func (g *gleif) leiToOrgEntity(e *et.Event, ident *dbt.Entity) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	if edges, err := e.Session.DB().IncomingEdges(ctx, ident, time.Time{}, "id"); err == nil {
@@ -139,12 +139,11 @@ func (g *gleif) addAddress(e *et.Event, orgent *dbt.Entity, rel oam.Relation, ad
 		e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", g.name, "handler", g.name))
 		return err
 	}
-
 	return nil
 }
 
 func (g *gleif) addIdentifiersToOrg(e *et.Event, orgent *dbt.Entity, idtype string, ids []string, conf int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	for _, id := range ids {

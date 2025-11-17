@@ -80,12 +80,13 @@ func (bt *bgpTools) Start(r et.Registry) error {
 		plugin: bt,
 	}
 	if err := r.RegisterHandler(&et.Handler{
-		Plugin:     bt,
-		Name:       bt.netblock.name,
-		Priority:   1,
-		Transforms: []string{string(oam.Netblock)},
-		EventType:  oam.IPAddress,
-		Callback:   bt.netblock.check,
+		Plugin:       bt,
+		Name:         bt.netblock.name,
+		Priority:     2,
+		MaxInstances: support.MaxHandlerInstances,
+		Transforms:   []string{string(oam.Netblock)},
+		EventType:    oam.IPAddress,
+		Callback:     bt.netblock.check,
 	}); err != nil {
 		return err
 	}
@@ -97,8 +98,8 @@ func (bt *bgpTools) Start(r et.Registry) error {
 	if err := r.RegisterHandler(&et.Handler{
 		Plugin:       bt,
 		Name:         bt.autsys.name,
-		Priority:     1,
-		MaxInstances: 10,
+		Priority:     2,
+		MaxInstances: support.MidHandlerInstances,
 		Transforms:   []string{string(oam.AutonomousSystem)},
 		EventType:    oam.Netblock,
 		Callback:     bt.autsys.check,

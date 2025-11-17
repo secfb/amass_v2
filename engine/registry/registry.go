@@ -10,22 +10,19 @@ import (
 	"sync"
 
 	et "github.com/owasp-amass/amass/v5/engine/types"
-	oam "github.com/owasp-amass/open-asset-model"
 )
 
 type registry struct {
 	sync.RWMutex
-	log       *slog.Logger
-	handlers  map[string]map[int][]*et.Handler
-	pipelines map[string]*et.AssetPipeline
+	log      *slog.Logger
+	handlers map[string]map[int][]*et.Handler
 }
 
 // Create a new instance of Registry.
 func NewRegistry(l *slog.Logger) et.Registry {
 	return &registry{
-		log:       l,
-		handlers:  make(map[string]map[int][]*et.Handler),
-		pipelines: make(map[string]*et.AssetPipeline),
+		log:      l,
+		handlers: make(map[string]map[int][]*et.Handler),
 	}
 }
 
@@ -69,14 +66,4 @@ loop:
 	et, p := string(h.EventType), h.Priority
 	r.handlers[et][p] = append(r.handlers[et][p], h)
 	return nil
-}
-
-func (r *registry) GetPipeline(eventType oam.AssetType) (*et.AssetPipeline, error) {
-	r.RLock()
-	defer r.RUnlock()
-
-	if p, found := r.pipelines[string(eventType)]; found {
-		return p, nil
-	}
-	return nil, fmt.Errorf("no handlers registered for the EventType: %s", eventType)
 }

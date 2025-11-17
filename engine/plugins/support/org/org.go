@@ -52,7 +52,7 @@ func CreateOrgAsset(session et.Session, obj *dbt.Entity, rel oam.Relation, o *oa
 		orgent = dedupChecks(session, obj, o)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	if orgent == nil {

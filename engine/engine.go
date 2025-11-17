@@ -47,10 +47,6 @@ func NewEngine(l *slog.Logger) (*Engine, error) {
 		return nil, err
 	}
 
-	if err := reg.BuildPipelines(); err != nil {
-		return nil, err
-	}
-
 	srv := server.NewServer(l, dis, mgr)
 	if srv == nil {
 		dis.Shutdown()

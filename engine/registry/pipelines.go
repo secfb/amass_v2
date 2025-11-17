@@ -16,20 +16,6 @@ import (
 	et "github.com/owasp-amass/amass/v5/engine/types"
 )
 
-func (r *registry) BuildPipelines() error {
-	r.Lock()
-	defer r.Unlock()
-
-	for k := range r.handlers {
-		p, err := r.BuildAssetPipeline(string(k))
-		if err != nil {
-			return err
-		}
-		r.pipelines[k] = p
-	}
-	return nil
-}
-
 func (r *registry) BuildAssetPipeline(atype string) (*et.AssetPipeline, error) {
 	var stages []pipeline.Stage
 

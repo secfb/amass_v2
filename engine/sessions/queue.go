@@ -44,7 +44,7 @@ func (sq *sessionQueue) Has(e *dbt.Entity) bool {
 	return sq.db.Has(e.ID)
 }
 
-func (sq *sessionQueue) Append(e *dbt.Entity) error {
+func (sq *sessionQueue) Append(e *dbt.Entity, processed bool) error {
 	if e == nil {
 		return errors.New("entity is nil")
 	}
@@ -58,6 +58,10 @@ func (sq *sessionQueue) Append(e *dbt.Entity) error {
 	key := e.Asset.AssetType()
 	if key == "" {
 		return errors.New("asset type is empty")
+	}
+
+	if processed {
+		return sq.db.AppendAndMark(key, e.ID)
 	}
 	return sq.db.Append(key, e.ID)
 }

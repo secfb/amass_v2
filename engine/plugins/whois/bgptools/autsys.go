@@ -61,7 +61,7 @@ func (r *autsys) check(e *et.Event) error {
 }
 
 func (r *autsys) lookup(e *et.Event, nb *dbt.Entity, since time.Time) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	edges, err := e.Session.DB().IncomingEdges(ctx, nb, since, "announces")
@@ -96,9 +96,39 @@ func (r *autsys) query(e *et.Event, nb *dbt.Entity) *dbt.Entity {
 		return nil
 	}
 
+	if asn, src := r.checkCIDRanger(e, cidr, first); asn != 0 {
+		return r.store(e, asn, nb, src)
+	}
+
+	r.plugin.Lock()
+	defer r.plugin.Unlock()
+
+	// Check the CIDR ranger again in case another thread updated it
+	if asn, src := r.checkCIDRanger(e, cidr, first); asn != 0 {
+		return r.store(e, asn, nb, src)
+	}
+
 	var asn int
-	src := r.plugin.source
-	if entries, err := e.Session.CIDRanger().ContainingNetworks(first); err == nil && len(entries) > 0 {
+	var src *et.Source
+	arg := nb.Asset.Key()
+	if record, err := r.plugin.whois(arg); err == nil {
+		asn = record.ASN
+	} else {
+		e.Session.Log().Error("failed to obtain a response from the WHOIS server", "err",
+			err.Error(), "argument", arg, slog.Group("plugin", "name", r.plugin.name, "handler", r.name))
+	}
+
+	if asn == 0 {
+		return nil
+	}
+	return r.store(e, asn, nb, src)
+}
+
+func (r *autsys) checkCIDRanger(e *et.Event, cidr string, ip net.IP) (int, *et.Source) {
+	var asn int
+	var src *et.Source
+
+	if entries, err := e.Session.CIDRanger().ContainingNetworks(ip); err == nil && len(entries) > 0 {
 		for _, entry := range entries {
 			if arentry, ok := entry.(*sessions.CIDRangerEntry); ok {
 				if strings.EqualFold(cidr, arentry.Net.String()) {
@@ -110,25 +140,11 @@ func (r *autsys) query(e *et.Event, nb *dbt.Entity) *dbt.Entity {
 		}
 	}
 
-	if asn == 0 {
-		arg := nb.Asset.Key()
-
-		if record, err := r.plugin.whois(arg); err == nil {
-			asn = record.ASN
-		} else {
-			e.Session.Log().Error("failed to obtain a response from the WHOIS server", "err",
-				err.Error(), "argument", arg, slog.Group("plugin", "name", r.plugin.name, "handler", r.name))
-		}
-	}
-
-	if asn == 0 {
-		return nil
-	}
-	return r.store(e, asn, nb, src)
+	return asn, src
 }
 
 func (r *autsys) store(e *et.Event, asn int, nb *dbt.Entity, src *et.Source) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	as, err := e.Session.DB().CreateAsset(ctx, &oamnet.AutonomousSystem{Number: asn})

@@ -7,8 +7,8 @@ package dns
 import (
 	"log/slog"
 
+	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
-	"github.com/owasp-amass/engine/plugins/support"
 	oam "github.com/owasp-amass/open-asset-model"
 )
 

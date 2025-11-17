@@ -18,7 +18,7 @@ import (
 )
 
 func (g *gleif) createLEIIdentifier(session et.Session, orgent *dbt.Entity, lei *general.Identifier, conf int) (*dbt.Entity, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
 	id, err := session.DB().CreateAsset(ctx, lei)

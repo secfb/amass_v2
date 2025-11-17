@@ -102,7 +102,7 @@ func (r *domrec) lookup(e *et.Event, asset *dbt.Entity, src *et.Source, m *confi
 				continue
 			}
 
-			if !r.oneOfSources(e, a, src, since) {
+			if !r.oneOfSources(ctx, e, a, src, since) {
 				continue
 			}
 
@@ -120,10 +120,7 @@ func (r *domrec) lookup(e *et.Event, asset *dbt.Entity, src *et.Source, m *confi
 	return findings
 }
 
-func (r *domrec) oneOfSources(e *et.Event, asset *dbt.Entity, src *et.Source, since time.Time) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
+func (r *domrec) oneOfSources(ctx context.Context, e *et.Event, asset *dbt.Entity, src *et.Source, since time.Time) bool {
 	if tags, err := e.Session.DB().FindEntityTags(ctx, asset, since, src.Name); err == nil && len(tags) > 0 {
 		for _, tag := range tags {
 			if _, ok := tag.Property.(*general.SourceProperty); ok {

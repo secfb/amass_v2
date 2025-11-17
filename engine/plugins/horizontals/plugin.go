@@ -10,8 +10,6 @@ import (
 	"log/slog"
 	"time"
 
-	"command-line-arguments/Users/caffix/repos/amass/engine/plugins/support/support.go"
-
 	"github.com/miekg/dns"
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	"github.com/owasp-amass/amass/v5/engine/sessions/scope"
