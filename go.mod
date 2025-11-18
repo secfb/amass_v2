@@ -18,6 +18,7 @@ require (
 	github.com/glebarez/sqlite v1.11.0
 	github.com/go-ini/ini v1.67.0
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/likexian/whois v1.15.6

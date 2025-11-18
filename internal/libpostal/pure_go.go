@@ -10,14 +10,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
 	"os"
+	"time"
 
 	"github.com/owasp-amass/amass/v5/internal/net/http"
 )
 
 type parsed struct {
 	Parts []ParsedComponent `json:"parts"`
+}
+
+type parseRequest struct {
+	Address  string `json:"addr"`
+	Language string `json:"lang"`
+	Country  string `json:"country"`
 }
 
 var postalHost, postalPort string
@@ -32,8 +38,18 @@ func ParseAddress(address string) ([]ParsedComponent, error) {
 		return nil, errors.New(ErrPostalLibNotAvailable)
 	}
 
-	resp, err := http.RequestWebPage(context.TODO(), &http.Request{
-		URL: "http://" + postalHost + ":" + postalPort + "/parse?address=" + url.QueryEscape(address),
+	reqJSON, err := json.Marshal(parseRequest{Address: address})
+	if err != nil {
+		return nil, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := http.RequestWebPage(ctx, &http.Request{
+		Method: "POST",
+		URL:    "http://" + postalHost + ":" + postalPort + "/parse",
+		Body:   string(reqJSON),
 	})
 	if err != nil {
 		return nil, err
@@ -45,33 +61,3 @@ func ParseAddress(address string) ([]ParsedComponent, error) {
 	}
 	return p.Parts, nil
 }
-
-/*
-func expandAddress(address string) (string, error) {
-	if postalHost == "" || postalPort == "" {
-		return "", errors.New("no postal server information provided")
-	}
-
-	resp, err := http.RequestWebPage(context.TODO(), &http.Request{
-		URL: "http://" + postalHost + ":" + postalPort + "/expand?address=" + url.QueryEscape(address),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	type expanded struct {
-		Forms []string `json:"forms"`
-	}
-
-	var ex expanded
-	if err := json.Unmarshal([]byte("{\"forms\":"+resp.Body+"}"), &ex); err != nil {
-		return "", err
-	}
-
-	num := len(ex.Forms)
-	if num == 0 {
-		return "", errors.New("the libpostal expansion returned zero normalized strings")
-	}
-	return ex.Forms[num-1], nil
-}
-*/
