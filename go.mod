@@ -7,7 +7,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/adrg/strutil v0.3.1
-	github.com/caffix/fullname_parser v0.0.0-20240817200809-1b9b04da88d0
+	github.com/caffix/fullname_parser v0.0.0-20251119203047-da8ac01752ea
 	github.com/caffix/jarm-go v0.0.0-20240920030848-1c7ab2423494
 	github.com/caffix/pipeline v0.2.6-0.20251119032954-0f5a82313c42
 	github.com/caffix/queue v0.3.2-0.20251119032527-45cc261f0bd4
@@ -89,7 +89,6 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rubenv/sql-migrate v1.8.0 // indirect
 	github.com/samber/lo v1.52.0 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
