@@ -51,13 +51,35 @@ func (pi *pipelineInstance) onDequeue(e *et.Event) {
 	if sid != "" {
 		pi.parent.incSessionQueued(sid, -1)
 	}
+
+	if pi.draining.Load() && pi.queueLen() == 0 {
+		pi.parent.mu.Lock()
+		defer pi.parent.mu.Unlock()
+
+		delete(pi.parent.instances, pi.id)
+		pi.parent.ring.Remove(pi.id)
+
+		// drop any shardAssignments pointing here; they will be reassigned on next event
+		for key, id := range pi.parent.shardAssignments {
+			if id == pi.id {
+				delete(pi.parent.shardAssignments, key)
+			}
+		}
+
+		pi.parent.log.Info("removed idle pipeline instance",
+			"atype", pi.parent.eventTy,
+			"id", pi.id,
+		)
+	}
 }
 
 func (pi *pipelineInstance) queueLen() int64 {
 	return pi.queued.Load()
 }
 
-// ---- pipelinePool ----
+// ------------------------------------------------------------------------------------------
+// ---------------------------------- Pipeline Pool -----------------------------------------
+// ------------------------------------------------------------------------------------------
 
 type pipelinePool struct {
 	log     *slog.Logger
@@ -329,13 +351,14 @@ func (p *pipelinePool) maybeScale() {
 	// Scale down
 	if avg < shrinkThreshold && n > p.minInstances {
 		// pick emptiest instance to drain
-		var targetID string
 		var best *pipelineInstance
 
-		for id, inst := range p.instances {
+		for _, inst := range p.instances {
+			if inst.draining.Load() {
+				continue
+			}
 			if best == nil || inst.queueLen() < best.queueLen() {
 				best = inst
-				targetID = id
 			}
 		}
 		if best == nil {
@@ -343,20 +366,21 @@ func (p *pipelinePool) maybeScale() {
 		}
 
 		best.draining.Store(true)
+		best.ap.Queue.Drain()
 		if best.queueLen() == 0 {
-			delete(p.instances, targetID)
-			p.ring.Remove(targetID)
+			delete(p.instances, best.id)
+			p.ring.Remove(best.id)
 
 			// drop any shardAssignments pointing here; they will be reassigned on next event
 			for key, id := range p.shardAssignments {
-				if id == targetID {
+				if id == best.id {
 					delete(p.shardAssignments, key)
 				}
 			}
 
 			p.log.Info("removed idle pipeline instance",
 				"atype", p.eventTy,
-				"id", targetID,
+				"id", best.id,
 			)
 		}
 	}
