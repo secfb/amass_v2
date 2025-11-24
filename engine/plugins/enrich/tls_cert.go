@@ -38,7 +38,7 @@ type tlsexpand struct {
 
 func NewTLSCerts() et.Plugin {
 	return &tlsexpand{
-		name: "TLCert-Expansion",
+		name: "TLSCert-Expansion",
 		transforms: []string{
 			string(oam.URL),
 			string(oam.FQDN),
@@ -50,7 +50,7 @@ func NewTLSCerts() et.Plugin {
 			string(oam.TLSCertificate),
 		},
 		source: &et.Source{
-			Name:       "TLCert-Expansion",
+			Name:       "TLSCert-Expansion",
 			Confidence: 100,
 		},
 	}
