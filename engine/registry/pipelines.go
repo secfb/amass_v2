@@ -130,10 +130,9 @@ func handlerTask(h *et.Handler) pipeline.TaskFunc {
 				}
 				if influxClient != nil {
 					end := time.Now()
+					handlerID := fmt.Sprintf("%s-%d", from, h.Position)
 					p := influxdb3.NewPointWithMeasurement("handler_duration").
-						SetTag("atype", from).
-						SetTag("plugin", pname).
-						SetField("key", ede.Event.Entity.Asset.Key()).
+						SetTag("handler", handlerID).
 						SetField("duration", end.Sub(start).Nanoseconds()).
 						SetTimestamp(end)
 					_ = influxClient.WritePoints(ctx, []*influxdb3.Point{p})
