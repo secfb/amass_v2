@@ -3,12 +3,12 @@ module github.com/owasp-amass/amass/v5
 go 1.25
 
 require (
-	github.com/99designs/gqlgen v0.17.83
+	github.com/99designs/gqlgen v0.17.84
 	github.com/InfluxCommunity/influxdb3-go/v2 v2.11.0
 	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/adrg/strutil v0.3.1
-	github.com/caffix/fullname_parser v0.0.0-20251119203047-da8ac01752ea
+	github.com/caffix/fullname_parser v0.0.0-20251125232100-56f069a7ca05
 	github.com/caffix/jarm-go v0.0.0-20240920030848-1c7ab2423494
 	github.com/caffix/pipeline v0.3.0
 	github.com/caffix/queue v0.4.0
@@ -29,7 +29,7 @@ require (
 	github.com/openrdap/rdap v0.9.1
 	github.com/owasp-amass/asset-db v0.23.2-0.20251114000254-cc18da83cdea
 	github.com/owasp-amass/open-asset-model v0.15.0
-	github.com/owasp-amass/resolve v0.9.7-0.20251125024813-dfea6c593506
+	github.com/owasp-amass/resolve v0.9.7-0.20251125200007-9917c9c03621
 	github.com/samber/slog-common v0.19.0
 	github.com/samber/slog-syslog/v2 v2.5.2
 	github.com/stretchr/testify v1.11.1
@@ -71,13 +71,13 @@ require (
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
-	github.com/google/flatbuffers v25.2.10+incompatible // indirect
+	github.com/google/flatbuffers v25.9.23+incompatible // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/influxdata/line-protocol/v2 v2.2.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/likexian/gokit v0.25.15 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -92,29 +92,29 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.67.2 // indirect
+	github.com/prometheus/common v0.67.4 // indirect
 	github.com/prometheus/procfs v0.19.2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/rubenv/sql-migrate v1.8.0 // indirect
+	github.com/rubenv/sql-migrate v1.8.1 // indirect
 	github.com/samber/lo v1.52.0 // indirect
 	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
-	golang.org/x/crypto v0.44.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
-	golang.org/x/telemetry v0.0.0-20251111182119-bc8e575c7b54 // indirect
+	golang.org/x/telemetry v0.0.0-20251124170345-55bbf377f459 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
-	google.golang.org/grpc v1.75.1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251124214823-79d6a2a48846 // indirect
+	google.golang.org/grpc v1.77.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
-	modernc.org/libc v1.67.0 // indirect
+	modernc.org/libc v1.67.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 	modernc.org/sqlite v1.40.1 // indirect
