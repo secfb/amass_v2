@@ -47,34 +47,43 @@ func (r *netblock) check(e *et.Event) error {
 		return nil
 	}
 
+	r.plugin.Lock()
+	defer r.plugin.Unlock()
+
+	// re-check if there's a netblock associated with this IP address
+	if found, err := e.Session.CIDRanger().Contains(net.ParseIP(ipstr)); err == nil && found {
+		return nil
+	}
+
 	since, err := support.TTLStartTime(e.Session.Config(), string(oam.IPAddress), string(oam.Netblock), r.plugin.name)
 	if err != nil {
 		return err
 	}
 
-	nb, as := r.lookup(e, e.Entity, since)
-	if nb == nil || as == nil {
-		r.plugin.Lock()
-
-		// re-check the asset database in case another handler added the netblock
-		nb, as = r.lookup(e, e.Entity, since)
-		if nb == nil || as == nil {
-			nb, as = r.query(e, e.Entity)
-		}
-		r.plugin.Unlock()
+	nbent, asent := r.lookup(e, e.Entity, since)
+	if nbent == nil || asent == nil {
+		nbent, asent = r.query(e, e.Entity)
 	}
 
-	if nb != nil && as != nil {
-		if asnent, ok := as.Asset.(*oamnet.AutonomousSystem); ok {
-			if _, ipnet, err := net.ParseCIDR(nb.Asset.(*oamnet.Netblock).CIDR.String()); err == nil && ipnet != nil {
-				_ = e.Session.CIDRanger().Insert(&sessions.CIDRangerEntry{
-					Net: ipnet,
-					ASN: asnent.Number,
-					Src: r.plugin.source,
-				})
-			}
-			r.process(e, e.Entity, nb, as)
+	if nbent != nil && asent != nil {
+		as, valid := asent.Asset.(*oamnet.AutonomousSystem)
+		if !valid {
+			return nil
 		}
+
+		nb, valid := nbent.Asset.(*oamnet.Netblock)
+		if !valid {
+			return nil
+		}
+
+		if _, ipnet, err := net.ParseCIDR(nb.CIDR.String()); err == nil && ipnet != nil {
+			_ = e.Session.CIDRanger().Insert(&sessions.CIDRangerEntry{
+				Net: ipnet,
+				ASN: as.Number,
+				Src: r.plugin.source,
+			})
+		}
+		r.process(e, e.Entity, nbent, asent)
 	}
 	return nil
 }
