@@ -244,9 +244,7 @@ func sweepCallback(e *et.Event, ip *oamnet.IPAddress, src *et.Source) {
 			Source:     src.Name,
 			Confidence: src.Confidence,
 		})
-	}
 
-	if entity != nil {
 		_ = e.Dispatcher.DispatchEvent(&et.Event{
 			Name:    ip.Address.String(),
 			Entity:  entity,

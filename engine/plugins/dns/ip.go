@@ -125,44 +125,45 @@ func (d *dnsIP) store(e *et.Event, fqdn *dbt.Entity, rr []dns.RR) []*relIP {
 	defer cancel()
 
 	for _, record := range rr {
-		var err error
-		var ip *dbt.Entity
+		var addr, ipType string
 
-		if record.Header().Rrtype == dns.TypeA {
-			addr := (record.(*dns.A)).A.String()
-
-			ip, err = e.Session.DB().CreateAsset(ctx, &oamnet.IPAddress{Address: netip.MustParseAddr(string(addr)), Type: "IPv4"})
-			if err != nil || ip == nil {
-				e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
-			}
-		} else if record.Header().Rrtype == dns.TypeAAAA {
-			addr := (record.(*dns.AAAA)).AAAA.String()
-
-			ip, err = e.Session.DB().CreateAsset(ctx, &oamnet.IPAddress{Address: netip.MustParseAddr(addr), Type: "IPv6"})
-			if err != nil || ip == nil {
-				e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
-			}
+		switch record.Header().Rrtype {
+		case dns.TypeA:
+			ipType = "IPv4"
+			addr = (record.(*dns.A)).A.String()
+		case dns.TypeAAAA:
+			ipType = "IPv6"
+			addr = (record.(*dns.AAAA)).AAAA.String()
+		default:
+			continue
 		}
 
-		if err == nil && ip != nil {
-			if edge, err := e.Session.DB().CreateEdge(ctx, &dbt.Edge{
-				Relation: &oamdns.BasicDNSRelation{
-					Name: "dns_record",
-					Header: oamdns.RRHeader{
-						RRType: int(record.Header().Rrtype),
-						Class:  int(record.Header().Class),
-						TTL:    int(record.Header().Ttl),
-					},
+		ip, err := e.Session.DB().CreateAsset(ctx, &oamnet.IPAddress{
+			Address: netip.MustParseAddr(addr),
+			Type:    ipType,
+		})
+		if err != nil || ip == nil {
+			e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
+			continue
+		}
+
+		if edge, err := e.Session.DB().CreateEdge(ctx, &dbt.Edge{
+			Relation: &oamdns.BasicDNSRelation{
+				Name: "dns_record",
+				Header: oamdns.RRHeader{
+					RRType: int(record.Header().Rrtype),
+					Class:  int(record.Header().Class),
+					TTL:    int(record.Header().Ttl),
 				},
-				FromEntity: fqdn,
-				ToEntity:   ip,
-			}); err == nil && edge != nil {
-				ips = append(ips, &relIP{rtype: "dns_record", ip: ip})
-				_, _ = e.Session.DB().CreateEdgeProperty(ctx, edge, &general.SourceProperty{
-					Source:     d.source.Name,
-					Confidence: d.source.Confidence,
-				})
-			}
+			},
+			FromEntity: fqdn,
+			ToEntity:   ip,
+		}); err == nil && edge != nil {
+			ips = append(ips, &relIP{rtype: "dns_record", ip: ip})
+			_, _ = e.Session.DB().CreateEdgeProperty(ctx, edge, &general.SourceProperty{
+				Source:     d.source.Name,
+				Confidence: d.source.Confidence,
+			})
 		}
 	}
 
