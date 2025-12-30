@@ -12,6 +12,7 @@ import (
 	assetdb "github.com/owasp-amass/asset-db"
 	"github.com/owasp-amass/asset-db/repository"
 	"github.com/owasp-amass/asset-db/repository/neo4j"
+	"github.com/owasp-amass/asset-db/repository/postgres"
 	"github.com/owasp-amass/asset-db/repository/sqlite3"
 )
 
@@ -28,7 +29,7 @@ func OpenGraphDatabase(cfg *config.Config) repository.Repository {
 				path := filepath.Join(config.OutputDirectory(cfg.Dir), "asset.db")
 				dbase = NewGraph(db.System, path, db.Options)
 			case "postgres":
-				connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s", db.Host, db.Port, db.Username, db.Password, db.DBName)
+				connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s", db.Username, db.Password, db.Host, db.Port, db.DBName)
 				dbase = NewGraph(db.System, connStr, db.Options)
 			default:
 				dbase = NewGraph(db.System, db.URL, db.Options)
@@ -54,9 +55,9 @@ func NewGraph(system, path string, options string) repository.Repository {
 	case "local":
 		dbtype = sqlite3.SQLite
 		dsn = path
-	/*case "postgres":
-	dbtype = sqlrepo.Postgres
-	dsn = path*/
+	case "postgres":
+		dbtype = postgres.Postgres
+		dsn = path
 	case "bolt":
 		dbtype = neo4j.Neo4j
 		dsn = path
