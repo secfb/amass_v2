@@ -195,7 +195,8 @@ func FillCache(cache *ASNCache, db repository.Repository) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	assets, err := db.FindEntitiesByType(ctx, oam.AutonomousSystem, time.Time{})
+	since := time.Now().Add(-1 * (time.Hour * 24 * 365))
+	assets, err := db.FindEntitiesByType(ctx, oam.AutonomousSystem, since)
 	if err != nil {
 		return err
 	}
