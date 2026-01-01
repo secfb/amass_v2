@@ -15,9 +15,19 @@ import (
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 )
 
-// returns Asset objects by converting the contests of config.Scope
+// returns Asset objects by converting the contents of config.Scope and ProvidedNames
 func makeAssets(config *config.Config) []*et.Asset {
 	assets := convertScopeToAssets(config.Scope)
+
+	// Convert ProvidedNames to FQDN assets
+	for _, name := range config.ProvidedNames {
+		fqdn := oamdns.FQDN{Name: name}
+		data := et.AssetData{
+			OAMAsset: fqdn,
+			OAMType:  fqdn.AssetType(),
+		}
+		assets = append(assets, &et.Asset{Data: data})
+	}
 
 	for i, asset := range assets {
 		asset.Name = fmt.Sprintf("asset#%d", i+1)
