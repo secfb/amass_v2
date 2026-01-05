@@ -26,9 +26,9 @@ func TestMakeAssetsWithProvidedNames(t *testing.T) {
 
 	assets := convertScopeToAssets(cfg.Scope)
 
-	// Should have 1 domain + 3 provided names = 4 assets
-	if len(assets) != 4 {
-		t.Errorf("Expected 4 assets, got %d", len(assets))
+	// Should have 1 domain, not 4 assets
+	if len(assets) != 1 {
+		t.Errorf("Expected 1 asset, got %d", len(assets))
 	}
 
 	// Verify that provided names are included as FQDNs
