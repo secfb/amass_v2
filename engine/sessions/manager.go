@@ -107,6 +107,8 @@ func (r *manager) CancelSession(id uuid.UUID) {
 			s.Log().Error(fmt.Sprintf("failed to close the database for session %s: %v", id, err))
 		}
 	}
+
+	s.PubSub().Close()
 	delete(r.sessions, id)
 }
 
