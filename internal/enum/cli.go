@@ -215,9 +215,11 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 	var count int
 	// create all assets defined in the scope on the server
 	for _, a := range convertScopeToAssets(cfg.Scope) {
-		if _, err := c.CreateAsset(token, a); err == nil {
-			count++
+		if _, err := c.CreateAsset(token, a); err != nil {
+			_, _ = afmt.R.Fprintf(color.Error, "Failed to create asset on the engine: %v\n", err)
+			continue
 		}
+		count++
 	}
 
 	// create the provided DNS names on the server using bulk transfer
@@ -228,15 +230,21 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 		provFQDNs = append(provFQDNs, oamdns.FQDN{Name: a})
 
 		if fcount == client.MaxBulkItems {
-			if stored, err := c.CreateAssetsBulk(token, string(oam.FQDN), provFQDNs); err == nil {
-				count += stored
+			stored, err := c.CreateAssetsBulk(token, string(oam.FQDN), provFQDNs)
+			if err != nil {
+				_, _ = afmt.R.Fprintf(color.Error, "Failed to perform a bulk transfer of assets: %v\n", err)
+				continue
 			}
+
+			count += stored
 			fcount = 0
 			provFQDNs = provFQDNs[:0]
 		}
 	}
 	if fcount > 0 {
-		if stored, err := c.CreateAssetsBulk(token, string(oam.FQDN), provFQDNs); err == nil {
+		if stored, err := c.CreateAssetsBulk(token, string(oam.FQDN), provFQDNs); err != nil {
+			_, _ = afmt.R.Fprintf(color.Error, "Failed to perform a bulk transfer of assets: %v\n", err)
+		} else {
 			count += stored
 		}
 	}

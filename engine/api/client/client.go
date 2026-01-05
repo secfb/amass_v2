@@ -165,7 +165,7 @@ func (c *Client) SessionStats(token uuid.UUID) (*et.SessionStats, error) {
 // Creates a new asset on the server associated with the provided token.
 func (c *Client) CreateAsset(token uuid.UUID, asset oam.Asset) (string, error) {
 	atype := string(asset.AssetType())
-	raw, err := json.Marshal(asset)
+	raw, err := asset.JSON()
 	if err != nil {
 		return "", err
 	}
@@ -207,7 +207,7 @@ func (c *Client) CreateAssetsBulk(token uuid.UUID, atype string, assets []oam.As
 			return 0, fmt.Errorf("CreateAssetsBulk: mixed asset types not allowed")
 		}
 
-		raw, err := json.Marshal(asset)
+		raw, err := asset.JSON()
 		if err != nil {
 			return 0, err
 		}
