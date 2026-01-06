@@ -234,7 +234,7 @@ func (c *Client) CreateAssetsBulk(token uuid.UUID, atype string, assets []oam.As
 		if err != nil {
 			return 0, err
 		}
-		items = append(items, raw)
+		items = append(items, json.RawMessage(raw))
 	}
 
 	sessionID := token.String()

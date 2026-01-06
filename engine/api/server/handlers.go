@@ -7,6 +7,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -230,16 +231,11 @@ func (s *Server) addAssetsBulkHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	assets := make([]oam.Asset, 0, len(req.Items))
-	for _, raw := range req.Items {
-		// minimal validation: ensure it’s valid JSON object
-		if !looksLikeJSONObject(raw) {
-			// count as failed ingest, but continue
-			continue
-		}
-
+	for i, raw := range req.Items {
 		a, err := parseAsset(assetType, raw)
 		if err != nil {
 			// count as failed ingest, but continue
+			log.Printf("item[%d] parseAsset failed: %v; raw=%s", i, err, string(raw))
 			continue
 		}
 		assets = append(assets, a)
