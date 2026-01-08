@@ -63,12 +63,13 @@ func (pi *pipelineInstance) onDequeue(e *et.Event) {
 		pi.parent.incSessionQueued(sid, -1)
 	}
 
+	qlen := pi.queueLen()
 	// Wake the pool pump when we cross below lowWater
-	if pi.queueLen() == pi.lowWater {
+	if qlen == pi.lowWater {
 		pi.parent.notifyCapacity()
 	}
 
-	if pi.draining.Load() && pi.queueLen() == 0 {
+	if pi.draining.Load() && qlen == 0 {
 		pi.parent.mu.Lock()
 		defer pi.parent.mu.Unlock()
 
@@ -292,7 +293,7 @@ func (p *pipelinePool) workShardKey(e *et.Event) string {
 		return sid
 	}
 
-	assetKey := assetKeyOf(e) // e.g., fqdn, IP, ASN; see helper below
+	assetKey := assetKeyOf(e)
 	if assetKey == "" {
 		assetKey = sid
 	}
@@ -416,9 +417,7 @@ func (p *pipelinePool) maybeAdjustFanout(e *et.Event) {
 	}
 
 	newFanout := fanout * 2
-	if newFanout > maxFanout {
-		newFanout = maxFanout
-	}
+	newFanout = min(newFanout, maxFanout)
 	p.sessionFanout[sid] = newFanout
 
 	p.log.Info("adjusting session fan-out",
