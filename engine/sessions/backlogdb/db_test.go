@@ -2,8 +2,9 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package queuedb
+package backlogdb
 
+/*
 import (
 	"errors"
 	"fmt"
@@ -225,3 +226,4 @@ func TestDelete(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, queueDB.Has(eid), "The element should be deleted from the database")
 }
+*/

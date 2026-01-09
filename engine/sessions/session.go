@@ -34,7 +34,7 @@ type Session struct {
 	scope    *scope.Scope
 	start    time.Time
 	db       repository.Repository
-	queue    *sessionQueue
+	backlog  *sessionBacklog
 	dsn      string
 	dbtype   string
 	ranger   cidranger.Ranger
@@ -76,7 +76,7 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 		return nil, err
 	}
 
-	s.queue, err = newSessionQueue(s)
+	s.backlog, err = newSessionBacklog(s)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +115,8 @@ func (s *Session) DB() repository.Repository {
 	return s.db
 }
 
-func (s *Session) Queue() et.SessionQueue {
-	return s.queue
+func (s *Session) Backlog() et.Backlog {
+	return s.backlog
 }
 
 func (s *Session) CIDRanger() cidranger.Ranger {

@@ -8,103 +8,34 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
-	"golang.org/x/net/publicsuffix"
 )
 
-var ErrBackpressure = fmt.Errorf("backpressure")
-
-type pipelineInstance struct {
-	parent    *pipelinePool
-	id        string
-	atype     oam.AssetType
-	ap        *et.AssetPipeline
-	draining  atomic.Bool
-	queued    atomic.Int64
-	maxQueued int64 // e.g., 200 or 500; tune per asset type
-	lowWater  int64 // e.g., maxQueued/2; used for wakeups
-}
-
-func (pi *pipelineInstance) canAccept() bool {
-	if pi.draining.Load() {
-		return false
-	}
-	return pi.queued.Load() < pi.maxQueued
-}
-
-func (pi *pipelineInstance) enqueue(e *et.Event) error {
-	if !pi.canAccept() {
-		return ErrBackpressure
-	}
-	// Only increment AFTER admission decision
-	pi.queued.Add(1)
-
-	sid := sessionIDOf(e)
-	if sid != "" {
-		pi.parent.incSessionQueued(sid, 1)
-	}
-
-	e.Dispatcher = pi.parent.dis
-	data := et.NewEventDataElement(e)
-	data.Exit = pi.parent.dis.cchan
-	data.Ref = pi // keep a ref to the instance
-	return pi.ap.Queue.Append(data)
-}
-
-func (pi *pipelineInstance) onDequeue(e *et.Event) {
-	pi.queued.Add(-1)
-
-	sid := sessionIDOf(e)
-	if sid != "" {
-		pi.parent.incSessionQueued(sid, -1)
-	}
-
-	qlen := pi.queueLen()
-	// Wake the pool pump when we cross below lowWater
-	if qlen == pi.lowWater {
-		pi.parent.notifyCapacity()
-	}
-
-	if pi.draining.Load() && qlen == 0 {
-		pi.parent.mu.Lock()
-		defer pi.parent.mu.Unlock()
-
-		delete(pi.parent.instances, pi.id)
-		pi.parent.log.Info("removed idle pipeline instance",
-			"atype", pi.parent.eventTy,
-			"id", pi.id,
-		)
-	}
-}
-
-func (pi *pipelineInstance) queueLen() int64 {
-	return pi.queued.Load()
-}
-
-// ------------------------------------------------------------------------------------------
-// ---------------------------------- Pipeline Pool -----------------------------------------
-// ------------------------------------------------------------------------------------------
-
 type pipelinePool struct {
-	mu           sync.RWMutex
-	log          *slog.Logger
-	dis          *dynamicDispatcher
-	reg          et.Registry
-	eventTy      oam.AssetType
+	mu      sync.RWMutex
+	log     *slog.Logger
+	dis     *dynamicDispatcher
+	reg     et.Registry
+	eventTy oam.AssetType
+	// dynamic bounds
 	minInstances int
 	maxInstances int
-	instances    map[string]*pipelineInstance // instanceID -> instance
-	ring         *hashRing                    // shardKey -> instanceID
+	// baseline policy bounds
+	baseMin   int
+	baseMax   int
+	hardMax   int                          // absolute safety cap
+	instances map[string]*pipelineInstance // instanceID -> instance
+	ring      *hashRing                    // shardKey -> instanceID
 	// session fan-out and load tracking
 	sessionFanout   map[string]int   // sessionID -> fanout factor (1 = no fanout)
 	sessionQueued   map[string]int64 // sessionID -> queued count across all instances
 	lastScale       time.Time
 	pendingSessions map[string]et.Session
 	wake            chan struct{}
+	lastBounds      time.Time
 }
 
 func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, min, max int) *pipelinePool {
@@ -115,6 +46,19 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, min, max int) 
 		max = min
 	}
 
+	// hardMax: you can tune per asset type; keep it conservative
+	hard := max
+	switch atype {
+	case oam.FQDN, oam.IPAddress:
+		if hard < 256 {
+			hard = 256
+		} // example: allow growth beyond baseMax if needed
+	default:
+		if hard < 64 {
+			hard = 64
+		}
+	}
+
 	p := &pipelinePool{
 		log:             dis.log,
 		dis:             dis,
@@ -122,6 +66,9 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, min, max int) 
 		eventTy:         atype,
 		minInstances:    min,
 		maxInstances:    max,
+		baseMin:         min,
+		baseMax:         max,
+		hardMax:         hard,
 		instances:       make(map[string]*pipelineInstance),
 		ring:            newHashRing(50),
 		sessionFanout:   make(map[string]int),
@@ -129,45 +76,20 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, min, max int) 
 		lastScale:       time.Now(),
 		pendingSessions: make(map[string]et.Session),
 		wake:            make(chan struct{}, 1),
+		lastBounds:      time.Now(),
 	}
 
 	go p.runPump()
 	return p
 }
 
-// Dispatch routes the event to an instance based on a session-aware shardKey.
+// Dispatch wakes up the pump for admission.
 func (p *pipelinePool) Dispatch(e *et.Event) error {
-	p.ensureMinInstances()
-
-	shardKey := p.workShardKey(e)
-	inst := p.pickInstance(shardKey)
-	if inst == nil {
-		return fmt.Errorf("no pipeline instance available for %v", p.eventTy)
-	}
-
-	if err := inst.enqueue(e); err != nil {
-		if err == ErrBackpressure {
-			// Do not treat as failure: event is durable in session queue DB already
-			p.notePending(e) // mark that this session/atype has backlog
-			p.maybeScale()   // scaling may help shorten backpressure windows
-			p.maybeAdjustFanout(e)
-			return nil
-		}
-		return err
-	}
-
+	// mark that this session/atype has backlog
+	p.notePending(e)
 	p.maybeScale()
 	p.maybeAdjustFanout(e)
-	return e.Session.Queue().Processed(e.Entity)
-}
-
-func (p *pipelinePool) ensureMinInstances() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	for len(p.instances) < p.minInstances {
-		p.createInstanceLocked()
-	}
+	return nil
 }
 
 func (p *pipelinePool) runPump() {
@@ -197,8 +119,8 @@ func (p *pipelinePool) pumpOnce() {
 	const perSessionBurst = 10
 
 	for _, sess := range sessions {
-		entities, err := sess.Queue().Next(p.eventTy, perSessionBurst)
-		if err != nil {
+		entities, err := sess.Backlog().ClaimNext(p.eventTy, perSessionBurst)
+		if err != nil || len(entities) == 0 {
 			p.clearPending(sess.ID().String())
 			continue
 		}
@@ -213,12 +135,17 @@ func (p *pipelinePool) pumpOnce() {
 
 			inst := p.pickInstance(p.workShardKey(event))
 			if inst == nil || !inst.canAccept() {
+				_ = sess.Backlog().Release(ent, p.eventTy, false)
 				continue
 			}
 
-			if err := inst.enqueue(event); err == nil {
-				_ = sess.Queue().Processed(ent)
+			if err := inst.enqueue(event); err != nil {
+				_ = sess.Backlog().Release(ent, p.eventTy, false)
 			}
+		}
+
+		if queued, _, _, err := sess.Backlog().Counts(p.eventTy); err == nil && queued == 0 {
+			p.clearPending(sess.ID().String())
 		}
 	}
 }
@@ -432,8 +359,8 @@ func (p *pipelinePool) maybeAdjustFanout(e *et.Event) {
 func (p *pipelinePool) maybeScale() {
 	const (
 		scaleInterval   = 5 * time.Second
-		growThreshold   = 100 // avg queued across instances
-		shrinkThreshold = 10  // avg queued across instances
+		growThreshold   = 100
+		shrinkThreshold = 10
 	)
 
 	now := time.Now()
@@ -445,18 +372,35 @@ func (p *pipelinePool) maybeScale() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
+	// compute load
 	var total int64
 	for _, inst := range p.instances {
 		total += inst.queueLen()
 	}
 
 	n := len(p.instances)
+	var avg int64
+	if n > 0 {
+		avg = total / int64(n)
+	}
+
+	// NEW: adjust min/max based on current workload + active sessions
+	p.recomputeBoundsLocked(total, avg)
+
+	// NEW: enforce dynamic min immediately
+	for len(p.instances) < p.minInstances {
+		if p.createInstanceLocked() == nil {
+			break
+		}
+	}
+
+	n = len(p.instances)
 	if n == 0 {
 		return
 	}
-	avg := total / int64(n)
+	avg = total / int64(n)
 
-	// Scale up
+	// Scale up (within dynamic max)
 	if avg > growThreshold && n < p.maxInstances {
 		p.log.Info("scaling up pipeline pool",
 			"atype", p.eventTy,
@@ -464,22 +408,23 @@ func (p *pipelinePool) maybeScale() {
 			"to", n+1,
 			"queuedTotal", total,
 			"queuedAvg", avg,
+			"min", p.minInstances,
+			"max", p.maxInstances,
 		)
 		p.createInstanceLocked()
 		return
 	}
 
-	// Scale down
+	// Scale down (respect dynamic min)
 	if avg < shrinkThreshold && n > p.minInstances {
+		// your existing drain/choose-emptiest logic, but compare to p.minInstances
 		var count int
-		// pick emptiest instance to drain
 		var best *pipelineInstance
 
 		for _, inst := range p.instances {
 			if inst.draining.Load() {
 				continue
 			}
-
 			count++
 			if best == nil || inst.queueLen() < best.queueLen() {
 				best = inst
@@ -502,42 +447,77 @@ func (p *pipelinePool) maybeScale() {
 	}
 }
 
-// ----------------------------------------------------------------
-// ---------------- Helpers for session keys ----------------------
-// ----------------------------------------------------------------
-
-// sessionIDOf extracts a stable session identifier from an event.
-func sessionIDOf(e *et.Event) string {
-	if e == nil || e.Session == nil {
-		return ""
+func (p *pipelinePool) activeSessionCountLocked() int {
+	if len(p.pendingSessions) == 0 && len(p.sessionQueued) == 0 {
+		return 0
 	}
-	return e.Session.ID().String()
-}
-
-// fallbackShardKey is used when we don't have a session; you can
-// make this smarter if needed.
-func fallbackShardKey(e *et.Event) string {
-	if e == nil || e.Entity == nil {
-		return ""
+	set := make(map[string]struct{}, len(p.pendingSessions)+len(p.sessionQueued))
+	for sid := range p.pendingSessions {
+		set[sid] = struct{}{}
 	}
-	return e.Entity.ID
-}
-
-// assetKeyOf returns a stable per-asset key used to choose a bucket
-// within a session. This should be consistent with the AssetType.
-func assetKeyOf(e *et.Event) string {
-	if e == nil || e.Entity == nil {
-		return ""
-	}
-
-	switch e.Entity.Asset.AssetType() {
-	case oam.FQDN:
-		if name := e.Entity.Asset.Key(); name != "" {
-			if dom, err := publicsuffix.EffectiveTLDPlusOne(name); err == nil {
-				return dom
-			}
+	for sid, q := range p.sessionQueued {
+		if q > 0 {
+			set[sid] = struct{}{}
 		}
 	}
+	return len(set)
+}
 
-	return e.Entity.Asset.Key()
+func (p *pipelinePool) recomputeBoundsLocked(totalQueued int64, avgQueued int64) {
+	const boundsInterval = 2 * time.Second
+
+	now := time.Now()
+	if now.Sub(p.lastBounds) < boundsInterval {
+		return
+	}
+	p.lastBounds = now
+
+	active := p.activeSessionCountLocked()
+
+	// If nothing is active, drift back toward baseline.
+	if active == 0 && totalQueued == 0 {
+		p.minInstances = p.baseMin
+		p.maxInstances = p.baseMax
+		return
+	}
+
+	// Dynamic max: baseline plus ability to grow with activity/pressure.
+	targetMax := p.baseMax
+	if active > targetMax {
+		targetMax = active
+	}
+
+	// If we are seeing pressure, allow growth beyond baseline.
+	// (You already have growThreshold=100 in maybeScale; reuse it conceptually.)
+	if avgQueued > 100 {
+		// add headroom when congested
+		targetMax = maxInt(targetMax, len(p.instances)+1)
+		targetMax = maxInt(targetMax, active+(active/2)) // 1.5x sessions under pressure
+	}
+
+	targetMax = clampInt(targetMax, p.baseMin, p.hardMax)
+
+	// Dynamic min: keep some warm capacity as sessions grow (but not 1:1).
+	warm := p.baseMin + (active+3)/4 // 1 extra instance per 4 active sessions
+	targetMin := clampInt(warm, p.baseMin, targetMax)
+
+	p.minInstances = targetMin
+	p.maxInstances = targetMax
+}
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

@@ -86,6 +86,9 @@ func (d *dynamicDispatcher) completedCallback(data any) {
 		return
 	}
 
+	// ack the completion in the backlog
+	_ = ede.Event.Session.Backlog().Ack(ede.Event.Entity, false)
+
 	if inst, ok := ede.Ref.(*pipelineInstance); ok {
 		inst.onDequeue(ede.Event)
 	}
@@ -107,11 +110,11 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 	}
 
 	// do not schedule the same asset more than once
-	if e.Session.Queue().Has(e.Entity) {
+	if e.Session.Backlog().Has(e.Entity) {
 		return nil
 	}
 
-	err := e.Session.Queue().Append(e.Entity, false)
+	err := e.Session.Backlog().Enqueue(e.Entity)
 	if err != nil {
 		return err
 	}
@@ -121,10 +124,8 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 	if pool == nil {
 		return fmt.Errorf("no pipeline pool available for asset type %s", string(atype))
 	}
+	_ = pool.Dispatch(e)
 
-	if err := pool.Dispatch(e); err != nil {
-		return err
-	}
 	// increment the number of events in the session
 	if stats := e.Session.Stats(); stats != nil {
 		stats.Lock()

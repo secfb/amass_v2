@@ -259,7 +259,7 @@ func existsAndHasAncestorInSession(session et.Session, o *oamorg.Organization) (
 						visited[id] = struct{}{}
 
 						if a, err := session.DB().FindEntityById(ctx, id); err == nil && a != nil {
-							if session.Queue().Has(edge.FromEntity) {
+							if session.Backlog().Has(edge.FromEntity) {
 								return orgent, nil
 							}
 							assets = append(assets, a)

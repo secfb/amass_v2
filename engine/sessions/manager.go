@@ -91,9 +91,9 @@ func (r *manager) CancelSession(id uuid.UUID) {
 	r.Lock()
 	defer r.Unlock()
 
-	if qdb := r.sessions[id].Queue(); qdb != nil {
-		if err := qdb.Close(); err != nil {
-			s.Log().Error(fmt.Sprintf("failed to close the queue for session %s: %v", id, err))
+	if backlog := r.sessions[id].Backlog(); backlog != nil {
+		if err := backlog.Close(); err != nil {
+			s.Log().Error(fmt.Sprintf("failed to close the backlog for session %s: %v", id, err))
 		}
 	}
 	if s, ok := r.sessions[id].(*Session); ok {
