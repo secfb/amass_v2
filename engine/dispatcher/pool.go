@@ -134,7 +134,7 @@ func (p *pipelinePool) pumpOnce() {
 			}
 
 			inst := p.pickInstance(p.workShardKey(event))
-			if inst == nil || !inst.canAccept() {
+			if inst == nil {
 				_ = sess.Backlog().Release(ent, p.eventTy, false)
 				continue
 			}
@@ -384,10 +384,10 @@ func (p *pipelinePool) maybeScale() {
 		avg = total / int64(n)
 	}
 
-	// NEW: adjust min/max based on current workload + active sessions
+	// adjust min/max based on current workload + active sessions
 	p.recomputeBoundsLocked(total, avg)
 
-	// NEW: enforce dynamic min immediately
+	// enforce dynamic min immediately
 	for len(p.instances) < p.minInstances {
 		if p.createInstanceLocked() == nil {
 			break
@@ -411,13 +411,12 @@ func (p *pipelinePool) maybeScale() {
 			"min", p.minInstances,
 			"max", p.maxInstances,
 		)
-		p.createInstanceLocked()
+		_ = p.createInstanceLocked()
 		return
 	}
 
 	// Scale down (respect dynamic min)
 	if avg < shrinkThreshold && n > p.minInstances {
-		// your existing drain/choose-emptiest logic, but compare to p.minInstances
 		var count int
 		var best *pipelineInstance
 
@@ -482,17 +481,13 @@ func (p *pipelinePool) recomputeBoundsLocked(totalQueued int64, avgQueued int64)
 	}
 
 	// Dynamic max: baseline plus ability to grow with activity/pressure.
-	targetMax := p.baseMax
-	if active > targetMax {
-		targetMax = active
-	}
+	targetMax := max(active, p.baseMax)
 
 	// If we are seeing pressure, allow growth beyond baseline.
-	// (You already have growThreshold=100 in maybeScale; reuse it conceptually.)
 	if avgQueued > 100 {
 		// add headroom when congested
-		targetMax = maxInt(targetMax, len(p.instances)+1)
-		targetMax = maxInt(targetMax, active+(active/2)) // 1.5x sessions under pressure
+		targetMax = max(targetMax, len(p.instances)+1)
+		targetMax = max(targetMax, active+(active/2)) // 1.5x sessions under pressure
 	}
 
 	targetMax = clampInt(targetMax, p.baseMin, p.hardMax)
@@ -513,11 +508,4 @@ func clampInt(v, lo, hi int) int {
 		return hi
 	}
 	return v
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
