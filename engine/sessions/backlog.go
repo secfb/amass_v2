@@ -73,7 +73,7 @@ func (sb *sessionBacklog) SetOwner(owner string) {
 // SetLeaseTTL overrides the default lease TTL used by ClaimNext.
 // TTL should exceed typical end-to-end pipeline latency, or use Release on backpressure.
 func (sb *sessionBacklog) SetLeaseTTL(ttl time.Duration) {
-	if ttl > 0 {
+	if ttl >= 0 {
 		sb.leaseTTL = ttl
 	}
 }
