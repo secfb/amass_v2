@@ -53,15 +53,8 @@ func (p *pipelinePool) recomputeBoundsLocked(totalQueued int64, avgQueued int64)
 
 	// Dynamic max: baseline plus ability to grow with activity/pressure.
 	targetMax := max(active, p.baseMax)
-
-	// If we are seeing pressure, allow growth beyond baseline.
-	if avgQueued > 100 {
-		// add headroom when congested
-		targetMax = max(targetMax, len(p.instances)+1)
-		targetMax = max(targetMax, active+(active/2)) // 1.5x sessions under pressure
-	}
-
 	targetMax = clampInt(targetMax, p.baseMin, p.hardMax)
+
 	// Dynamic min: keep some warm capacity as sessions grow (but not 1:1).
 	warm := p.baseMin + (active+3)/4 // 1 extra instance per 4 active sessions
 	targetMin := clampInt(warm, p.baseMin, targetMax)
