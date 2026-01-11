@@ -16,15 +16,14 @@ import (
 )
 
 type dynamicDispatcher struct {
+	sync.RWMutex
 	log    *slog.Logger
 	reg    et.Registry
 	mgr    et.SessionManager
 	done   chan struct{}
-	cchan  chan *et.EventDataElement
 	cqueue queue.Queue
-
-	mu    sync.RWMutex
-	pools map[oam.AssetType]*pipelinePool
+	cchan  chan *et.EventDataElement
+	pools  map[oam.AssetType]*pipelinePool
 }
 
 func NewDispatcher(l *slog.Logger, r et.Registry, mgr et.SessionManager) et.Dispatcher {
@@ -64,12 +63,12 @@ func (d *dynamicDispatcher) runEvents() {
 		}
 
 		select {
-		case <-scale.C:
-			for _, pool := range d.pools {
-				if pool.maybeScale() {
-					pool.maybeAdjustFanout()
-				}
+		/*case <-scale.C:
+		for _, pool := range d.pools {
+			if pool.maybeScale() {
+				pool.maybeAdjustFanout()
 			}
+		}*/
 		case e := <-d.cchan:
 			d.cqueue.Append(e)
 		case <-d.cqueue.Signal():
@@ -138,15 +137,16 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 }
 
 func (d *dynamicDispatcher) getOrCreatePool(atype oam.AssetType) *pipelinePool {
-	d.mu.RLock()
+	d.RLock()
 	pool := d.pools[atype]
-	d.mu.RUnlock()
+	d.RUnlock()
 	if pool != nil {
 		return pool
 	}
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.Lock()
+	defer d.Unlock()
+	// check if the pool was created while waiting
 	if pool = d.pools[atype]; pool != nil {
 		return pool
 	}

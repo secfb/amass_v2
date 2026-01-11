@@ -87,17 +87,6 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 	return pi.ap.Queue.Append(data)
 }
 
-// incSessionQueued tracks total queued items for a session across instances.
-func (p *pipelinePool) incSessionQueued(sid string, delta int64) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.sessionQueued[sid] += delta
-	if p.sessionQueued[sid] <= 0 {
-		delete(p.sessionQueued, sid)
-	}
-}
-
 func (pi *pipelineInstance) onDequeue(e *et.Event) {
 	pi.queued.Add(-1)
 
@@ -107,14 +96,14 @@ func (pi *pipelineInstance) onDequeue(e *et.Event) {
 	}
 
 	qlen := pi.queueLen()
-	// Wake the pool pump when we cross below lowWater
-	if qlen == pi.lowWater {
+	// Wake the pool pump when we are below lowWater
+	if qlen <= pi.lowWater {
 		pi.parent.notifyCapacity()
 	}
 
 	if pi.draining.Load() && qlen == 0 {
-		pi.parent.mu.Lock()
-		defer pi.parent.mu.Unlock()
+		pi.parent.Lock()
+		defer pi.parent.Unlock()
 
 		delete(pi.parent.instances, pi.id)
 		pi.parent.log.Info("removed idle pipeline instance",
@@ -126,4 +115,15 @@ func (pi *pipelineInstance) onDequeue(e *et.Event) {
 
 func (pi *pipelineInstance) queueLen() int64 {
 	return pi.queued.Load()
+}
+
+// incSessionQueued tracks total queued items for a session across instances.
+func (p *pipelinePool) incSessionQueued(sid string, delta int64) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.sessionQueued[sid] += delta
+	if p.sessionQueued[sid] <= 0 {
+		delete(p.sessionQueued, sid)
+	}
 }

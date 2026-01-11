@@ -16,7 +16,7 @@ import (
 )
 
 type pipelinePool struct {
-	mu      sync.RWMutex
+	sync.RWMutex
 	log     *slog.Logger
 	dis     *dynamicDispatcher
 	reg     et.Registry
@@ -69,12 +69,19 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, pmin, pmax int
 func (p *pipelinePool) Dispatch(e *et.Event) error {
 	// mark that this session/atype has backlog
 	p.notePending(e)
+
+	// decide whether to fill work queues
+	inst := p.pickInstance(p.workShardKey(e))
+	if inst != nil && inst.queueLen() <= instanceLowWater {
+		p.notifyCapacity()
+	}
+
 	return nil
 }
 
 func (p *pipelinePool) ensureMinInstances() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	p.ensureMinInstancesLocked()
 }
@@ -97,15 +104,15 @@ func (p *pipelinePool) workShardKey(e *et.Event) string {
 		return fallbackShardKey(e)
 	}
 
-	p.mu.RLock()
+	p.RLock()
 	fanout := p.sessionFanout[sid]
-	p.mu.RUnlock()
+	p.RUnlock()
 
 	if fanout <= 1 {
 		return sid
 	}
 
-	assetKey := assetKeyOf(e)
+	assetKey := assetBucket(e)
 	if assetKey == "" {
 		assetKey = sid
 	}
@@ -116,8 +123,8 @@ func (p *pipelinePool) workShardKey(e *et.Event) string {
 
 // pickInstance enforces "one pipeline per (assetType, shardKey) at a time".
 func (p *pipelinePool) pickInstance(shardKey string) *pipelineInstance {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 
 	if len(p.instances) == 0 {
 		return nil
@@ -147,7 +154,7 @@ func (p *pipelinePool) pickInstance(shardKey string) *pipelineInstance {
 }
 
 func (p *pipelinePool) runPump() {
-	tick := time.NewTicker(2 * time.Second)
+	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
 
 	for {
@@ -171,6 +178,11 @@ func (p *pipelinePool) pumpOnce() {
 
 	// Round-robin / bounded burst per session
 	const perSessionBurst = 10
+
+	// check that at least one instance has enough capacity
+	if !p.hasCapacity(perSessionBurst) {
+		return
+	}
 
 	for _, sess := range sessions {
 		entities, err := sess.Backlog().ClaimNext(p.eventTy, perSessionBurst)
@@ -204,12 +216,24 @@ func (p *pipelinePool) pumpOnce() {
 	}
 }
 
+func (p *pipelinePool) hasCapacity(num int64) bool {
+	p.RLock()
+	defer p.RUnlock()
+
+	for _, inst := range p.instances {
+		if inst.queueLen()+num <= instanceMaxQueued {
+			return true
+		}
+	}
+	return false
+}
+
 // snapshotPendingSessions returns a point-in-time list of session IDs that the pool
 // believes have pending work in the durable queue (or were previously blocked by
 // backpressure). The returned slice is safe to iterate without holding p.mu.
 func (p *pipelinePool) snapshotPendingSessions() []et.Session {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.RLock()
+	defer p.RUnlock()
 
 	if len(p.pendingSessions) == 0 {
 		return nil
@@ -229,10 +253,9 @@ func (p *pipelinePool) clearPending(sid string) {
 		return
 	}
 
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
+	p.Lock()
 	delete(p.pendingSessions, sid)
+	p.Unlock()
 }
 
 func (p *pipelinePool) notePending(e *et.Event) {
@@ -241,11 +264,9 @@ func (p *pipelinePool) notePending(e *et.Event) {
 		return
 	}
 
-	p.mu.Lock()
+	p.Lock()
 	p.pendingSessions[sid] = e.Session
-	p.mu.Unlock()
-
-	p.notifyCapacity()
+	p.Unlock()
 }
 
 func (p *pipelinePool) notifyCapacity() {
@@ -267,8 +288,7 @@ func sessionIDOf(e *et.Event) string {
 	return e.Session.ID().String()
 }
 
-// fallbackShardKey is used when we don't have a session; you can
-// make this smarter if needed.
+// fallbackShardKey is used when we don't have a session.
 func fallbackShardKey(e *et.Event) string {
 	if e == nil || e.Entity == nil {
 		return ""
@@ -278,7 +298,7 @@ func fallbackShardKey(e *et.Event) string {
 
 // assetKeyOf returns a stable per-asset key used to choose a bucket
 // within a session. This should be consistent with the AssetType.
-func assetKeyOf(e *et.Event) string {
+func assetBucket(e *et.Event) string {
 	if e == nil || e.Entity == nil {
 		return ""
 	}

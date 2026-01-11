@@ -58,8 +58,8 @@ func clampInt(v, lo, hi int) int {
 
 // maybeAdjustFanout bumps fan-out for very heavy sessions.
 func (p *pipelinePool) maybeAdjustFanout() {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	var scount int
 	for _, sess := range p.sessionQueued {
@@ -102,8 +102,8 @@ func (p *pipelinePool) maybeAdjustFanout() {
 
 // maybeScale still does global instance scaling based on overall queue sizes.
 func (p *pipelinePool) maybeScale() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	// adjust min/max based on active sessions
 	p.recomputeBoundsLocked()
