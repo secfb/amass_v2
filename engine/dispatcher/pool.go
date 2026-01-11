@@ -33,11 +33,8 @@ type pipelinePool struct {
 	// session fan-out and load tracking
 	sessionFanout   map[string]int   // sessionID -> fanout factor (1 = no fanout)
 	sessionQueued   map[string]int64 // sessionID -> queued count across all instances
-	lastFanout      time.Time
-	lastScale       time.Time
 	pendingSessions map[string]et.Session
 	wake            chan struct{}
-	lastBounds      time.Time
 }
 
 func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, pmin, pmax int) *pipelinePool {
@@ -59,11 +56,8 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, pmin, pmax int
 		ring:            newHashRing(50),
 		sessionFanout:   make(map[string]int),
 		sessionQueued:   make(map[string]int64),
-		lastFanout:      time.Now(),
-		lastScale:       time.Now(),
 		pendingSessions: make(map[string]et.Session),
 		wake:            make(chan struct{}, 1),
-		lastBounds:      time.Now(),
 	}
 
 	p.ensureMinInstances()

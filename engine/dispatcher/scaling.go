@@ -4,10 +4,6 @@
 
 package dispatcher
 
-import (
-	"time"
-)
-
 func (p *pipelinePool) activeSessionCountLocked() int {
 	if len(p.pendingSessions) == 0 && len(p.sessionQueued) == 0 {
 		return 0
@@ -30,14 +26,6 @@ func (p *pipelinePool) activeSessionCountLocked() int {
 }
 
 func (p *pipelinePool) recomputeBoundsLocked() {
-	const boundsInterval = 2 * time.Second
-
-	now := time.Now()
-	if now.Sub(p.lastBounds) < boundsInterval {
-		return
-	}
-	p.lastBounds = now
-
 	active := p.activeSessionCountLocked()
 	// If nothing is active, drift back toward baseline.
 	if active == 0 {

@@ -67,22 +67,20 @@ type Args struct {
 		Verbose      bool
 	}
 	Filepaths struct {
-		AllFilePrefix    string
-		AltWordlist      afmt.ParseStrings
-		Blacklist        string
-		BruteWordlist    afmt.ParseStrings
-		ConfigFile       string
-		Directory        string
-		Domains          afmt.ParseStrings
-		ExcludedSrcs     string
-		IncludedSrcs     string
-		JSONOutput       string
-		LogFile          string
-		Names            afmt.ParseStrings
-		Resolvers        afmt.ParseStrings
-		Trusted          afmt.ParseStrings
-		ScriptsDirectory string
-		TermOut          string
+		AllFilePrefix string
+		AltWordlist   afmt.ParseStrings
+		Blacklist     string
+		BruteWordlist afmt.ParseStrings
+		ConfigFile    string
+		Directory     string
+		Domains       afmt.ParseStrings
+		ExcludedSrcs  string
+		IncludedSrcs  string
+		JSONOutput    string
+		LogFile       string
+		Names         afmt.ParseStrings
+		Resolvers     afmt.ParseStrings
+		Trusted       afmt.ParseStrings
 	}
 }
 
@@ -147,8 +145,6 @@ func defineFilepathFlags(fs *flag.FlagSet, args *Args) {
 	fs.Var(&args.Filepaths.Names, "nf", "Path to a file providing already known subdomain names (from other tools/sources)")
 	fs.Var(&args.Filepaths.Resolvers, "rf", "Path to a file providing untrusted DNS resolvers")
 	fs.Var(&args.Filepaths.Trusted, "trf", "Path to a file providing trusted DNS resolvers")
-	fs.StringVar(&args.Filepaths.ScriptsDirectory, "scripts", "", "Path to a directory containing ADS scripts")
-	fs.StringVar(&args.Filepaths.TermOut, "o", "", "Path to the text file containing terminal stdout/stderr")
 }
 
 func CLIWorkflow(cmdName string, clArgs []string) {
@@ -429,9 +425,6 @@ func (e Args) OverrideConfig(conf *config.Config) error {
 	}
 	if e.Filepaths.Directory != "" {
 		conf.Dir = e.Filepaths.Directory
-	}
-	if e.Filepaths.ScriptsDirectory != "" {
-		conf.ScriptsDirectory = e.Filepaths.ScriptsDirectory
 	}
 	if e.Names.Len() > 0 {
 		conf.ProvidedNames = e.Names.Slice()

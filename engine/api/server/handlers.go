@@ -143,8 +143,11 @@ func (s *Server) getStatsHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
 	}
+	stats := sess.Stats()
 
-	writeJSON(w, http.StatusOK, sess.Stats())
+	stats.Lock()
+	writeJSON(w, http.StatusOK, stats)
+	stats.Unlock()
 }
 
 // Single typed add: raw OAM JSON in body, asset type in path.
