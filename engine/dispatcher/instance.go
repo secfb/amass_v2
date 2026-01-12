@@ -85,11 +85,10 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 	if !pi.canAccept() {
 		return ErrBackpressure
 	}
-	// Only increment AFTER admission decision
-	pi.queued.Add(1)
 
-	sid := sessionIDOf(e)
-	if sid != "" {
+	// Only increment AFTER admission decision
+	_ = pi.queued.Add(1)
+	if sid := sessionIDOf(e); sid != "" {
 		pi.parent.incSessionQueued(sid, 1)
 	}
 
@@ -101,14 +100,11 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 }
 
 func (pi *pipelineInstance) onDequeue(e *et.Event) {
-	pi.queued.Add(-1)
-
-	sid := sessionIDOf(e)
-	if sid != "" {
+	if sid := sessionIDOf(e); sid != "" {
 		pi.parent.incSessionQueued(sid, -1)
 	}
 
-	qlen := pi.queueLen()
+	qlen := pi.queued.Add(-1)
 	// Wake the pool pump when we are below lowWater
 	if qlen <= pi.lowWater {
 		pi.parent.notifyCapacity()

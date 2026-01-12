@@ -119,6 +119,16 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 		return err
 	}
 
+	atype := e.Entity.Asset.AssetType()
+	pool := d.getOrCreatePool(atype)
+	if pool == nil {
+		return fmt.Errorf("no pipeline pool available for asset type %s", string(atype))
+	}
+
+	if err := pool.Dispatch(e); err != nil {
+		return err
+	}
+
 	// increment the number of events in the session
 	if stats := e.Session.Stats(); stats != nil {
 		stats.Lock()
@@ -126,13 +136,7 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 		stats.Unlock()
 	}
 
-	atype := e.Entity.Asset.AssetType()
-	pool := d.getOrCreatePool(atype)
-	if pool == nil {
-		return fmt.Errorf("no pipeline pool available for asset type %s", string(atype))
-	}
-
-	return pool.Dispatch(e)
+	return nil
 }
 
 func (d *dynamicDispatcher) getOrCreatePool(atype oam.AssetType) *pipelinePool {
