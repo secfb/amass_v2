@@ -25,11 +25,12 @@ type pipelinePool struct {
 	minInstances int
 	maxInstances int
 	// baseline policy bounds
-	baseMin   int
-	baseMax   int
-	hardMax   int                          // absolute safety cap
-	instances map[string]*pipelineInstance // instanceID -> instance
-	ring      *hashRing                    // shardKey -> instanceID
+	baseMin         int
+	baseMax         int
+	hardMax         int // absolute safety cap
+	nextInstanceSeq uint64
+	instances       map[string]*pipelineInstance // instanceID -> instance
+	ring            *hashRing                    // shardKey -> instanceID
 	// session fan-out and load tracking
 	sessionFanout   map[string]int   // sessionID -> fanout factor (1 = no fanout)
 	sessionQueued   map[string]int64 // sessionID -> queued count across all instances

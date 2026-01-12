@@ -42,7 +42,7 @@ func (p *pipelinePool) createInstanceLocked() *pipelineInstance {
 		return nil
 	}
 
-	id := fmt.Sprintf("%s-%d", p.eventTy, len(p.instances)+1)
+	id := p.nextInstanceID()
 	inst := &pipelineInstance{
 		parent:    p,
 		id:        id,
@@ -54,11 +54,24 @@ func (p *pipelinePool) createInstanceLocked() *pipelineInstance {
 	p.instances[id] = inst
 	p.ring.Add(id)
 
-	p.log.Info("created pipeline instance",
-		"atype", p.eventTy,
-		"id", id,
-	)
+	p.log.Info("created pipeline instance", "atype", p.eventTy, "id", id)
 	return inst
+}
+
+// nextInstanceID allocates a unique ID independent of map length.
+func (p *pipelinePool) nextInstanceID() string {
+	var id string
+
+	for {
+		p.nextInstanceSeq++
+		id = fmt.Sprintf("%s-%d", p.eventTy, p.nextInstanceSeq)
+		if _, exists := p.instances[id]; !exists {
+			break
+		}
+		p.log.Error("pipeline instance id collision", "atype", p.eventTy, "id", id)
+	}
+
+	return id
 }
 
 func (pi *pipelineInstance) canAccept() bool {
