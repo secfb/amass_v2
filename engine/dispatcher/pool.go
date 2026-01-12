@@ -32,8 +32,7 @@ type pipelinePool struct {
 	instances       map[string]*pipelineInstance // instanceID -> instance
 	ring            *hashRing                    // shardKey -> instanceID
 	// session fan-out and load tracking
-	sessionFanout map[string]int   // sessionID -> fanout factor (1 = no fanout)
-	sessionQueued map[string]int64 // sessionID -> queued count across all instances
+	sessionFanout map[string]int // sessionID -> fanout factor (1 = no fanout)
 	wake          chan struct{}
 }
 
@@ -55,7 +54,6 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, pmin, pmax int
 		instances:     make(map[string]*pipelineInstance),
 		ring:          newHashRing(50),
 		sessionFanout: make(map[string]int),
-		sessionQueued: make(map[string]int64),
 		wake:          make(chan struct{}, 1),
 	}
 
@@ -165,9 +163,8 @@ func (p *pipelinePool) runPump() {
 }
 
 func (p *pipelinePool) pumpOnce() {
-	// Snapshot pending sessions (avoid holding lock during DB calls)
-	sessions := p.snapshotPendingSessions()
-	if len(sessions) == 0 {
+	stats, err := p.dis.snapshotSessBacklogStats(p.eventTy)
+	if err != nil {
 		return
 	}
 
@@ -179,8 +176,13 @@ func (p *pipelinePool) pumpOnce() {
 		return
 	}
 
-	for _, sess := range sessions {
-		entities, err := sess.Backlog().ClaimNext(p.eventTy, perSessionBurst)
+	for _, s := range stats {
+		if s.Queued == 0 {
+			// there are zero entities to claim from the backlog
+			continue
+		}
+
+		entities, err := s.Session.Backlog().ClaimNext(p.eventTy, perSessionBurst)
 		if err != nil {
 			continue
 		}
@@ -190,17 +192,17 @@ func (p *pipelinePool) pumpOnce() {
 				Name:       ent.Asset.Key(),
 				Entity:     ent,
 				Dispatcher: p.dis,
-				Session:    sess,
+				Session:    s.Session,
 			}
 
 			inst := p.pickInstance(p.workShardKey(event))
 			if inst == nil {
-				_ = sess.Backlog().Release(ent, p.eventTy, false)
+				_ = s.Session.Backlog().Release(ent, p.eventTy, false)
 				continue
 			}
 
 			if err := inst.enqueue(event); err != nil {
-				_ = sess.Backlog().Release(ent, p.eventTy, false)
+				_ = s.Session.Backlog().Release(ent, p.eventTy, false)
 			}
 		}
 	}
@@ -216,22 +218,6 @@ func (p *pipelinePool) hasCapacity(num int64) bool {
 		}
 	}
 	return false
-}
-
-// snapshotPendingSessions returns a point-in-time list of session IDs that the pool
-// believes have pending work in the backlog (or were previously blocked by
-// backpressure). The returned slice is safe to iterate without holding the mutex.
-func (p *pipelinePool) snapshotPendingSessions() []et.Session {
-	sessions := p.dis.mgr.GetSessions()
-
-	pending := make([]et.Session, 0, len(sessions))
-	for _, sess := range sessions {
-		if queued, _, _, err := sess.Backlog().Counts(p.eventTy); err == nil && queued > 0 {
-			pending = append(pending, sess)
-		}
-	}
-
-	return pending
 }
 
 func (p *pipelinePool) notifyCapacity() {

@@ -23,6 +23,7 @@ import (
 	"github.com/owasp-amass/asset-db/repository/neo4j"
 	"github.com/owasp-amass/asset-db/repository/postgres"
 	"github.com/owasp-amass/asset-db/repository/sqlite3"
+	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/yl2chen/cidranger"
 )
 
@@ -85,6 +86,7 @@ func CreateSession(cfg *config.Config) (et.Session, error) {
 	s.log.Info("Session initialized")
 	s.log.Info("Temporary directory created", slog.String("dir", s.tmpdir))
 	s.log.Info("Database connection established", slog.String("dsn", s.dsn))
+	go s.updateStats()
 	return s, nil
 }
 
@@ -224,4 +226,36 @@ func (s *Session) createTemporaryDir() (string, error) {
 	}
 
 	return dir, nil
+}
+
+func (s *Session) updateStats() {
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+
+	for {
+		select {
+		case <-s.done:
+			return
+		case <-tick.C:
+			s.calculateStats()
+		}
+	}
+}
+
+func (s *Session) calculateStats() {
+	var completed, total int
+
+	for _, atype := range oam.AssetList {
+		if queued, leased, done, err := s.backlog.Counts(atype); err == nil {
+			comp := int(done)
+			completed += comp
+			total += comp + int(queued) + int(leased)
+		}
+	}
+
+	ss := s.stats
+	ss.Lock()
+	ss.WorkItemsTotal = total
+	ss.WorkItemsCompleted = completed
+	ss.Unlock()
 }

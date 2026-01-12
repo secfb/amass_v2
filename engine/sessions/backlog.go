@@ -182,10 +182,10 @@ func (sb *sessionBacklog) ClaimNext(atype oam.AssetType, num int) ([]*dbt.Entity
 			continue
 		}
 
-		// Entity missing from asset DB: release the lease so it doesn't remain stuck in-flight.
-		rctx, rcancel := context.WithTimeout(context.Background(), 2*time.Second)
-		_ = sb.db.Release(rctx, c.EntityID, owner)
-		rcancel()
+		// Entity missing from asset DB: ack the entity so it doesn't get claimed again.
+		actx, acancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = sb.db.Ack(actx, c.EntityID, owner)
+		acancel()
 	}
 
 	if len(results) == 0 {

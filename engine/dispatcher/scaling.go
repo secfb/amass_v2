@@ -4,22 +4,11 @@
 
 package dispatcher
 
-func (p *pipelinePool) activeSessionCountLocked() int {
-	pending := p.snapshotPendingSessions()
+func (p *pipelinePool) activeSessionCount(stats sessStatsMap) int {
+	set := make(map[string]struct{}, len(stats))
 
-	if len(pending) == 0 && len(p.sessionQueued) == 0 {
-		return 0
-	}
-
-	set := make(map[string]struct{}, len(pending)+len(p.sessionQueued))
-
-	for _, sess := range pending {
-		sid := sess.ID().String()
-		set[sid] = struct{}{}
-	}
-
-	for sid, q := range p.sessionQueued {
-		if q > 0 {
+	for sid, sess := range stats {
+		if sess.Queued > 0 || sess.Leased > 0 {
 			set[sid] = struct{}{}
 		}
 	}
@@ -27,8 +16,7 @@ func (p *pipelinePool) activeSessionCountLocked() int {
 	return len(set)
 }
 
-func (p *pipelinePool) recomputeBoundsLocked() {
-	active := p.activeSessionCountLocked()
+func (p *pipelinePool) recomputeBoundsLocked(active int) {
 	// If nothing is active, drift back toward baseline.
 	if active == 0 {
 		p.minInstances = p.baseMin
@@ -59,13 +47,11 @@ func clampInt(v, lo, hi int) int {
 }
 
 // maybeAdjustFanout bumps fan-out for very heavy sessions.
-func (p *pipelinePool) maybeAdjustFanout() {
-	p.Lock()
-	defer p.Unlock()
-
+func (p *pipelinePool) maybeAdjustFanout(stats sessStatsMap) {
 	var scount int
-	for _, sess := range p.sessionQueued {
-		if sess > 0 {
+
+	for _, sess := range stats {
+		if sess.Leased > 0 {
 			scount++
 		}
 	}
@@ -73,9 +59,12 @@ func (p *pipelinePool) maybeAdjustFanout() {
 		return
 	}
 
+	p.Lock()
+	defer p.Unlock()
+
 	n := len(p.instances)
-	for sid, queued := range p.sessionQueued {
-		if n < scount || queued <= 0 {
+	for sid, sess := range stats {
+		if n < scount || sess.Leased <= 0 {
 			// inactive, or not enough instances to bother with fan-out
 			p.sessionFanout[sid] = 1
 			continue
@@ -90,7 +79,7 @@ func (p *pipelinePool) maybeAdjustFanout() {
 		if newFanout != fanout {
 			p.sessionFanout[sid] = newFanout
 
-			queued := p.sessionQueued[sid]
+			queued := sess.Leased
 			p.log.Info("adjusting session fan-out",
 				"atype", p.eventTy,
 				"session", sid,
@@ -103,12 +92,13 @@ func (p *pipelinePool) maybeAdjustFanout() {
 }
 
 // maybeScale still does global instance scaling based on overall queue sizes.
-func (p *pipelinePool) maybeScale() bool {
+func (p *pipelinePool) maybeScale(stats sessStatsMap) bool {
 	p.Lock()
 	defer p.Unlock()
 
+	active := p.activeSessionCount(stats)
 	// adjust min/max based on active sessions
-	p.recomputeBoundsLocked()
+	p.recomputeBoundsLocked(active)
 	// enforce dynamic min immediately
 	p.ensureMinInstancesLocked()
 

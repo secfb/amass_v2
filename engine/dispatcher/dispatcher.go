@@ -5,6 +5,7 @@
 package dispatcher
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -65,8 +66,10 @@ func (d *dynamicDispatcher) runEvents() {
 		select {
 		case <-scale.C:
 			for _, pool := range d.pools {
-				_ = pool.maybeScale()
-				pool.maybeAdjustFanout()
+				if stats, err := d.snapshotSessBacklogStats(pool.eventTy); err == nil {
+					_ = pool.maybeScale(stats)
+					pool.maybeAdjustFanout(stats)
+				}
 			}
 		case e := <-d.cchan:
 			d.cqueue.Append(e)
@@ -85,22 +88,16 @@ func (d *dynamicDispatcher) completedCallback(ede *et.EventDataElement) {
 	_ = ede.Event.Session.Backlog().Ack(ede.Event.Entity, false)
 
 	if inst, ok := ede.Ref.(*pipelineInstance); ok {
-		inst.onDequeue(ede.Event)
+		inst.onDequeue()
 	}
 
 	if err := ede.Error; err != nil {
 		ede.Event.Session.Log().WithGroup("event").With("name", ede.Event.Name).Error(err.Error())
 	}
-	// increment the number of events processed in the session
-	if stats := ede.Event.Session.Stats(); stats != nil {
-		stats.Lock()
-		stats.WorkItemsCompleted++
-		stats.Unlock()
-	}
 }
 
 func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
-	if e == nil || e.Entity == nil {
+	if e == nil || e.Entity == nil || e.Session == nil {
 		return nil
 	}
 
@@ -120,18 +117,7 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 		return fmt.Errorf("no pipeline pool available for asset type %s", string(atype))
 	}
 
-	if err := pool.Dispatch(e); err != nil {
-		return err
-	}
-
-	// increment the number of events in the session
-	if stats := e.Session.Stats(); stats != nil {
-		stats.Lock()
-		stats.WorkItemsTotal++
-		stats.Unlock()
-	}
-
-	return nil
+	return pool.Dispatch(e)
 }
 
 func (d *dynamicDispatcher) getOrCreatePool(atype oam.AssetType) *pipelinePool {
@@ -164,4 +150,36 @@ func assetTypeToPoolMinMax(atype oam.AssetType) (int, int) {
 	default:
 		return 1, 4
 	}
+}
+
+type sessStatsMap map[string]sessBacklogStats
+
+type sessBacklogStats struct {
+	Session   et.Session
+	Queued    int64
+	Leased    int64
+	Processed int64
+}
+
+// snapshotSessBacklogStats returns a point-in-time map of sessions and
+// their current stats from the backlog.
+func (d *dynamicDispatcher) snapshotSessBacklogStats(atype oam.AssetType) (sessStatsMap, error) {
+	sessions := d.mgr.GetSessions()
+
+	stats := make(sessStatsMap, len(sessions))
+	for _, sess := range sessions {
+		if queued, leased, done, err := sess.Backlog().Counts(atype); err == nil {
+			stats[sess.ID().String()] = sessBacklogStats{
+				Session:   sess,
+				Queued:    queued,
+				Leased:    leased,
+				Processed: done,
+			}
+		}
+	}
+
+	if len(stats) == 0 {
+		return nil, errors.New("failed to acquire the stats")
+	}
+	return stats, nil
 }

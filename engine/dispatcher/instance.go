@@ -88,9 +88,6 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 
 	// Only increment AFTER admission decision
 	_ = pi.queued.Add(1)
-	if sid := sessionIDOf(e); sid != "" {
-		pi.parent.incSessionQueued(sid, 1)
-	}
 
 	e.Dispatcher = pi.parent.dis
 	data := et.NewEventDataElement(e)
@@ -99,12 +96,9 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 	return pi.ap.Queue.Append(data)
 }
 
-func (pi *pipelineInstance) onDequeue(e *et.Event) {
-	if sid := sessionIDOf(e); sid != "" {
-		pi.parent.incSessionQueued(sid, -1)
-	}
-
+func (pi *pipelineInstance) onDequeue() {
 	qlen := pi.queued.Add(-1)
+
 	if pi.draining.Load() && qlen == 0 {
 		pi.parent.Lock()
 		defer pi.parent.Unlock()
@@ -125,15 +119,4 @@ func (pi *pipelineInstance) onDequeue(e *et.Event) {
 
 func (pi *pipelineInstance) queueLen() int64 {
 	return pi.queued.Load()
-}
-
-// incSessionQueued tracks total queued items for a session across instances.
-func (p *pipelinePool) incSessionQueued(sid string, delta int64) {
-	p.Lock()
-	defer p.Unlock()
-
-	p.sessionQueued[sid] += delta
-	if p.sessionQueued[sid] <= 0 {
-		delete(p.sessionQueued, sid)
-	}
 }
