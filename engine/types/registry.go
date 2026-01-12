@@ -63,6 +63,9 @@ func (pq *PipelineQueue) Append(data *EventDataElement) error {
 }
 
 func (pq *PipelineQueue) Drain() {
+	if pq.draining {
+		return
+	}
 	pq.draining = true
 	close(pq.drainCh)
 }
