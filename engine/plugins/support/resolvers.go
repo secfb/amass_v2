@@ -22,6 +22,11 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
+var (
+	ErrNameDoesNotExist   = errors.New("name does not exist")
+	ErrNoRecordOfThisType = errors.New("no record of this type")
+)
+
 type baseline struct {
 	address string
 	qps     int
@@ -88,7 +93,7 @@ var trusted *pool.Pool
 var detector *wildcards.Detector
 
 func PerformQuery(name string, qtype uint16) ([]dns.RR, error) {
-	for num := 0; num < 10; num++ {
+	for i := 1; i <= 10; i++ {
 		msg := utils.QueryMsg(name, qtype)
 		if qtype == dns.TypePTR {
 			msg = utils.ReverseMsg(name)
@@ -103,6 +108,10 @@ func PerformQuery(name string, qtype uint16) ([]dns.RR, error) {
 					return rr, nil
 				}
 			}
+		} else if err == ErrNameDoesNotExist || err == ErrNoRecordOfThisType {
+			return nil, err
+		} else {
+			time.Sleep(utils.ExponentialBackoff(i, 250*time.Millisecond))
 		}
 	}
 	return nil, errors.New("no valid answers")
@@ -121,10 +130,10 @@ func dnsQuery(msg *dns.Msg, r *pool.Pool) (*dns.Msg, error) {
 	if resp, err := r.Exchange(context.TODO(), msg); err != nil {
 		return nil, err
 	} else if resp.Rcode == dns.RcodeNameError {
-		return nil, errors.New("name does not exist")
+		return nil, ErrNameDoesNotExist
 	} else if resp.Rcode == dns.RcodeSuccess {
 		if len(resp.Answer) == 0 {
-			return nil, errors.New("no record of this type")
+			return nil, ErrNoRecordOfThisType
 		}
 		return resp, nil
 	}
