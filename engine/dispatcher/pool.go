@@ -162,7 +162,7 @@ func (p *pipelinePool) pickInstance(shardKey string) *pipelineInstance {
 }
 
 func (p *pipelinePool) runPump() {
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(250 * time.Millisecond)
 	defer tick.Stop()
 
 	for {

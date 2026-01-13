@@ -89,15 +89,17 @@ func (pi *pipelineInstance) enqueue(e *et.Event) error {
 func (pi *pipelineInstance) onDequeue() {
 	qlen := pi.queued.Add(-1)
 
-	if pi.draining.Load() && qlen == 0 {
-		pi.parent.Lock()
-		defer pi.parent.Unlock()
+	if pi.draining.Load() {
+		if qlen == 0 {
+			pi.parent.Lock()
+			defer pi.parent.Unlock()
 
-		delete(pi.parent.instances, pi.id)
-		pi.parent.log.Info("removed idle pipeline instance",
-			"atype", pi.parent.eventTy,
-			"id", pi.id,
-		)
+			delete(pi.parent.instances, pi.id)
+			pi.parent.log.Info("removed idle pipeline instance",
+				"atype", pi.parent.eventTy,
+				"id", pi.id,
+			)
+		}
 		return
 	}
 
