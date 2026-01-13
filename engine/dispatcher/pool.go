@@ -7,6 +7,7 @@ package dispatcher
 import (
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -42,12 +43,16 @@ type pipelinePool struct {
 	sessionFanout map[string]int // sessionID -> fanout factor (1 = no fanout)
 	wake          chan struct{}
 	limits        *poolLimits
+	shuffler      *rand.Rand
 }
 
 func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, pmin, pmax int) *pipelinePool {
 	pmin = max(pmin, 1)
 	pmax = max(pmax, pmin)
 	hard := pmax * 2
+
+	// Create a new random source
+	shuffler := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	p := &pipelinePool{
 		log:           dis.log,
@@ -64,6 +69,7 @@ func newPipelinePool(dis *dynamicDispatcher, atype oam.AssetType, pmin, pmax int
 		sessionFanout: make(map[string]int),
 		wake:          make(chan struct{}, 1),
 		limits:        limitsByAssetType(atype),
+		shuffler:      shuffler,
 	}
 
 	p.ensureMinInstances()
@@ -182,7 +188,19 @@ func (p *pipelinePool) pumpOnce() {
 		return
 	}
 
-	for _, s := range stats {
+	// build a list of the session IDs
+	sessions := make([]string, 0, len(stats))
+	for sid := range stats {
+		sessions = append(sessions, sid)
+	}
+
+	// shuffle the sessions for random selection
+	p.shuffler.Shuffle(len(sessions), func(i, j int) {
+		sessions[i], sessions[j] = sessions[j], sessions[i]
+	})
+
+	for _, sess := range sessions {
+		s := stats[sess]
 		if s.Queued == 0 {
 			// there are zero entities to claim from the backlog
 			continue
