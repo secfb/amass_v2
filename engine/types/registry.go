@@ -54,6 +54,10 @@ func NewPipelineQueue() *PipelineQueue {
 	}
 }
 
+func (pq *PipelineQueue) Len() int {
+	return pq.q.Len()
+}
+
 func (pq *PipelineQueue) Append(data *EventDataElement) error {
 	if pq.draining {
 		return errors.New("pipeline queue is draining")

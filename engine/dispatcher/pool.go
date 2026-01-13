@@ -136,7 +136,7 @@ func (p *pipelinePool) pickInstance(shardKey string) *pipelineInstance {
 		// fallback: pick emptiest
 		var best *pipelineInstance
 		for _, inst := range p.instances {
-			if best == nil || inst.queueLen() < best.queueLen() {
+			if best == nil || inst.queued.Load() < best.queued.Load() {
 				best = inst
 			}
 		}
@@ -177,11 +177,8 @@ func (p *pipelinePool) pumpOnce() {
 		return
 	}
 
-	// Round-robin / bounded burst per session
-	const perSessionBurst = 10
-
 	// check that at least one instance has enough capacity
-	if !p.hasCapacity(perSessionBurst) {
+	if !p.hasCapacity(p.limits.PerSessBurst) {
 		return
 	}
 
@@ -191,7 +188,7 @@ func (p *pipelinePool) pumpOnce() {
 			continue
 		}
 
-		entities, err := s.Session.Backlog().ClaimNext(p.eventTy, perSessionBurst)
+		entities, err := s.Session.Backlog().ClaimNext(p.eventTy, int(p.limits.PerSessBurst))
 		if err != nil {
 			continue
 		}

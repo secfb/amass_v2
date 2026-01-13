@@ -68,7 +68,7 @@ func (pi *pipelineInstance) canAccept() bool {
 	if pi.draining.Load() {
 		return false
 	}
-	return pi.queued.Load() < pi.parent.limits.MaxQueued
+	return pi.queueLen() < pi.parent.limits.MaxQueued
 }
 
 func (pi *pipelineInstance) enqueue(e *et.Event) error {
@@ -108,5 +108,5 @@ func (pi *pipelineInstance) onDequeue() {
 }
 
 func (pi *pipelineInstance) queueLen() int64 {
-	return pi.queued.Load()
+	return int64(pi.ap.Queue.Len())
 }

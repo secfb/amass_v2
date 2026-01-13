@@ -102,7 +102,7 @@ func (p *pipelinePool) maybeScale(stats sessStatsMap) bool {
 	// enforce dynamic min immediately
 	p.ensureMinInstancesLocked()
 
-	// compute load
+	// compute total elements in work queues
 	var total int64
 	for _, inst := range p.instances {
 		total += inst.queueLen()
@@ -140,7 +140,7 @@ func (p *pipelinePool) maybeScale(stats sessStatsMap) bool {
 			}
 
 			count++
-			if best == nil || inst.queueLen() < best.queueLen() {
+			if best == nil || inst.queued.Load() < best.queued.Load() {
 				best = inst
 			}
 		}
@@ -151,7 +151,7 @@ func (p *pipelinePool) maybeScale(stats sessStatsMap) bool {
 		best.ap.Queue.Drain()
 		p.ring.Remove(best.id)
 		best.draining.Store(true)
-		if best.queueLen() == 0 {
+		if best.queued.Load() == 0 {
 			delete(p.instances, best.id)
 			p.log.Info("removed idle pipeline instance",
 				"atype", p.eventTy,
