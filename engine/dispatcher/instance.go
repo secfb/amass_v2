@@ -12,23 +12,15 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 )
 
-const (
-	instanceLowWater  = int64(100)
-	instanceHighWater = int64(175)
-	instanceMaxQueued = int64(200)
-)
-
 var ErrBackpressure = fmt.Errorf("backpressure")
 
 type pipelineInstance struct {
-	parent    *pipelinePool
-	id        string
-	atype     oam.AssetType
-	ap        *et.AssetPipeline
-	draining  atomic.Bool
-	queued    atomic.Int64
-	maxQueued int64 // e.g., 200 or 500; tune per asset type
-	lowWater  int64 // e.g., maxQueued/2; used for wakeups
+	parent   *pipelinePool
+	id       string
+	atype    oam.AssetType
+	ap       *et.AssetPipeline
+	draining atomic.Bool
+	queued   atomic.Int64
 }
 
 func (p *pipelinePool) createInstanceLocked() *pipelineInstance {
@@ -44,12 +36,10 @@ func (p *pipelinePool) createInstanceLocked() *pipelineInstance {
 
 	id := p.nextInstanceID()
 	inst := &pipelineInstance{
-		parent:    p,
-		id:        id,
-		atype:     p.eventTy,
-		ap:        ap,
-		maxQueued: instanceMaxQueued,
-		lowWater:  instanceLowWater,
+		parent: p,
+		id:     id,
+		atype:  p.eventTy,
+		ap:     ap,
 	}
 	p.instances[id] = inst
 	p.ring.Add(id)
