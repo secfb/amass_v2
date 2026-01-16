@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -59,12 +59,6 @@ func processInputFiles(args *Args) error {
 		}
 	}
 	if err := getList([]string{args.Filepaths.Blacklist}, "blacklist", args.Blacklist); err != nil {
-		return err
-	}
-	if err := getList([]string{args.Filepaths.ExcludedSrcs}, "exclude", args.Excluded); err != nil {
-		return err
-	}
-	if err := getList([]string{args.Filepaths.IncludedSrcs}, "include", args.Included); err != nil {
 		return err
 	}
 	if err := getList(args.Filepaths.Names, "subdomain names", args.Names); err != nil {

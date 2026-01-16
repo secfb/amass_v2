@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -40,18 +40,15 @@ type Args struct {
 	BruteWordListMask *stringset.Set
 	Blacklist         *stringset.Set
 	Domains           *stringset.Set
+	Engine            string
 	Excluded          *stringset.Set
 	Included          *stringset.Set
 	Interface         string
-	MaxDNSQueries     int
-	ResolverQPS       int
-	TrustedQPS        int
 	MaxDepth          int
 	MinForRecursive   int
 	Names             *stringset.Set
 	Ports             afmt.ParseInts
 	Resolvers         *stringset.Set
-	Trusted           *stringset.Set
 	Timeout           int
 	Options           struct {
 		Active       bool
@@ -74,13 +71,10 @@ type Args struct {
 		ConfigFile    string
 		Directory     string
 		Domains       afmt.ParseStrings
-		ExcludedSrcs  string
-		IncludedSrcs  string
 		JSONOutput    string
 		LogFile       string
 		Names         afmt.ParseStrings
 		Resolvers     afmt.ParseStrings
-		Trusted       afmt.ParseStrings
 	}
 }
 
@@ -101,13 +95,10 @@ func defineArgumentFlags(fs *flag.FlagSet, args *Args) {
 	fs.Var(args.Blacklist, "bl", "Blacklist of subdomain names that will not be investigated")
 	fs.Var(args.BruteWordListMask, "wm", "\"hashcat-style\" wordlist masks for DNS brute forcing")
 	fs.Var(args.Domains, "d", "Domain names separated by commas (can be used multiple times)")
+	fs.StringVar(&args.Engine, "engine", "", "URL for the collection engine (Default: http://127.0.0.1:4000)")
 	fs.Var(args.Excluded, "exclude", "Data source names separated by commas to be excluded")
 	fs.Var(args.Included, "include", "Data source names separated by commas to be included")
 	fs.StringVar(&args.Interface, "iface", "", "Provide the network interface to send traffic through")
-	fs.IntVar(&args.MaxDNSQueries, "max-dns-queries", 0, "Deprecated flag to be replaced by dns-qps in version 4.0")
-	fs.IntVar(&args.MaxDNSQueries, "dns-qps", 0, "Maximum number of DNS queries per second across all resolvers")
-	fs.IntVar(&args.ResolverQPS, "rqps", 0, "Maximum number of DNS queries per second for each untrusted resolver")
-	fs.IntVar(&args.TrustedQPS, "trqps", 0, "Maximum number of DNS queries per second for each trusted resolver")
 	fs.IntVar(&args.MaxDepth, "max-depth", 0, "Maximum number of subdomain labels for brute forcing")
 	fs.IntVar(&args.MinForRecursive, "min-for-recursive", 1, "Subdomain labels seen before recursive brute forcing (Default: 1)")
 	fs.Var(&args.Ports, "p", "Ports separated by commas (default: 80, 443)")
@@ -139,12 +130,9 @@ func defineFilepathFlags(fs *flag.FlagSet, args *Args) {
 	fs.StringVar(&args.Filepaths.ConfigFile, "config", "", "Path to the YAML configuration file. Additional details below")
 	fs.StringVar(&args.Filepaths.Directory, "dir", "", "Path to the directory containing the output files")
 	fs.Var(&args.Filepaths.Domains, "df", "Path to a file providing root domain names")
-	fs.StringVar(&args.Filepaths.ExcludedSrcs, "ef", "", "Path to a file providing data sources to exclude")
-	fs.StringVar(&args.Filepaths.IncludedSrcs, "if", "", "Path to a file providing data sources to include")
 	fs.StringVar(&args.Filepaths.LogFile, "log", "", "Path to the log file where errors will be written")
 	fs.Var(&args.Filepaths.Names, "nf", "Path to a file providing already known subdomain names (from other tools/sources)")
 	fs.Var(&args.Filepaths.Resolvers, "rf", "Path to a file providing untrusted DNS resolvers")
-	fs.Var(&args.Filepaths.Trusted, "trf", "Path to a file providing trusted DNS resolvers")
 }
 
 func CLIWorkflow(cmdName string, clArgs []string) {
@@ -322,7 +310,6 @@ func argsAndConfig(cmdName string, clArgs []string) (*config.Config, *Args) {
 		Included:          stringset.New(),
 		Names:             stringset.New(),
 		Resolvers:         stringset.New(),
-		Trusted:           stringset.New(),
 	}
 
 	fs := NewFlagset(&args, flag.ContinueOnError)
@@ -369,12 +356,6 @@ func argsAndConfig(cmdName string, clArgs []string) (*config.Config, *Args) {
 	}
 	if args.BruteWordListMask.Len() > 0 {
 		args.BruteWordList.Union(args.BruteWordListMask)
-	}
-	if (args.Excluded.Len() > 0 || args.Filepaths.ExcludedSrcs != "") &&
-		(args.Included.Len() > 0 || args.Filepaths.IncludedSrcs != "") {
-		_, _ = afmt.R.Fprintln(color.Error, "Cannot provide both include and exclude arguments")
-		usage()
-		os.Exit(1)
 	}
 	if err := processInputFiles(&args); err != nil {
 		_, _ = fmt.Fprintf(color.Error, "%v\n", err)
@@ -426,6 +407,9 @@ func (e Args) OverrideConfig(conf *config.Config) error {
 	if e.Filepaths.Directory != "" {
 		conf.Dir = e.Filepaths.Directory
 	}
+	if e.Engine != "" {
+		conf.EngineAPI = &config.EngAPI{URL: e.Engine}
+	}
 	if e.Names.Len() > 0 {
 		conf.ProvidedNames = e.Names.Slice()
 	}
@@ -460,20 +444,8 @@ func (e Args) OverrideConfig(conf *config.Config) error {
 	if e.Options.Verbose {
 		conf.Verbose = true
 	}
-	if e.ResolverQPS > 0 {
-		conf.ResolversQPS = e.ResolverQPS
-	}
-	if e.TrustedQPS > 0 {
-		conf.TrustedQPS = e.TrustedQPS
-	}
 	if e.Resolvers.Len() > 0 {
 		conf.SetResolvers(e.Resolvers.Slice()...)
-	}
-	if e.Trusted.Len() > 0 {
-		conf.SetTrustedResolvers(e.Trusted.Slice()...)
-	}
-	if e.MaxDNSQueries > 0 {
-		conf.MaxDNSQueries = e.MaxDNSQueries
 	}
 	// Attempt to add the provided domains to the configuration
 	conf.AddDomains(e.Domains.Slice()...)
