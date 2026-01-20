@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -160,10 +160,10 @@ func getNewNames(domains []string, since time.Time, db repository.Repository) []
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if ent, err := db.FindOneEntityByContent(ctx, oam.FQDN, since, dbt.ContentFilters{
+		if ents, err := db.FindEntitiesByContent(ctx, oam.FQDN, since, 1, dbt.ContentFilters{
 			"name": d},
-		); err == nil && ent != nil {
-			if n, err := amassdb.FindByFQDNScope(ctx, db, ent, since); err == nil && len(n) > 0 {
+		); err == nil {
+			if n, err := amassdb.FindByFQDNScope(ctx, db, ents[0], since); err == nil && len(n) > 0 {
 				assets = append(assets, n...)
 			}
 		}

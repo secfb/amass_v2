@@ -164,12 +164,13 @@ func (d *dnsSubs) lookup(e *et.Event, subdomain string, since time.Time) []*relS
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	fqdn, err := e.Session.DB().FindOneEntityByContent(ctx, oam.FQDN, time.Time{}, dbt.ContentFilters{
+	ents, err := e.Session.DB().FindEntitiesByContent(ctx, oam.FQDN, time.Time{}, 1, dbt.ContentFilters{
 		"name": subdomain,
 	})
-	if err != nil || fqdn == nil {
+	if err != nil {
 		return alias
 	}
+	fqdn := ents[0]
 
 	n := fqdn.Asset.Key()
 	// Check for NS records within the since period

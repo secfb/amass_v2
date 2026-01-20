@@ -181,12 +181,13 @@ func (d *dnsPlugin) lookupWithinTTL(session et.Session, name string, atype oam.A
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	entity, err := session.DB().FindOneEntityByContent(ctx, oam.FQDN, time.Time{}, dbt.ContentFilters{
+	ents, err := session.DB().FindEntitiesByContent(ctx, oam.FQDN, time.Time{}, 1, dbt.ContentFilters{
 		"name": name,
 	})
-	if err != nil || entity == nil {
+	if err != nil {
 		return results
 	}
+	entity := ents[0]
 
 	if edges, err := session.DB().OutgoingEdges(ctx, entity, since, "dns_record"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {

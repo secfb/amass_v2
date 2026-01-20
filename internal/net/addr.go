@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -20,13 +20,14 @@ import (
 func ReadASPrefixes(ctx context.Context, db repository.Repository, asn int, since time.Time) []string {
 	var prefixes []string
 
-	fqdn, err := db.FindOneEntityByContent(ctx, oam.AutonomousSystem, since, dbt.ContentFilters{
+	ents, err := db.FindEntitiesByContent(ctx, oam.AutonomousSystem, since, 1, dbt.ContentFilters{
 		"number": asn,
 	})
-	if err != nil || fqdn == nil {
+	if err != nil || len(ents) == 0 {
 		return prefixes
 	}
 
+	fqdn := ents[0]
 	if edges, err := db.OutgoingEdges(ctx, fqdn, since, "announces"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
 			if a, err := db.FindEntityById(ctx, edge.ToEntity.ID); err != nil {
@@ -49,10 +50,10 @@ func NamesToAddrs(ctx context.Context, db repository.Repository, since time.Time
 	var fqdns []*dbt.Entity
 
 	for _, name := range names {
-		if ent, err := db.FindOneEntityByContent(ctx, oam.FQDN, since, dbt.ContentFilters{
+		if ents, err := db.FindEntitiesByContent(ctx, oam.FQDN, since, 1, dbt.ContentFilters{
 			"name": name,
-		}); err == nil && ent != nil {
-			fqdns = append(fqdns, ent)
+		}); err == nil && len(ents) == 1 {
+			fqdns = append(fqdns, ents[0])
 		}
 	}
 

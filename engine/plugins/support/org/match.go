@@ -158,7 +158,7 @@ func orgsWithSameNames(session et.Session, names []string) ([]*dbt.Entity, error
 		name := strings.ToLower(n)
 
 		// check for known organization name identifiers
-		if assets, err := session.DB().FindEntitiesByContent(ctx, oam.Identifier, time.Time{}, dbt.ContentFilters{
+		if assets, err := session.DB().FindEntitiesByContent(ctx, oam.Identifier, time.Time{}, 0, dbt.ContentFilters{
 			"unique_id": fmt.Sprintf("%s:%s", general.OrganizationName, name),
 		}); err == nil {
 			for _, a := range assets {
@@ -169,7 +169,7 @@ func orgsWithSameNames(session et.Session, names []string) ([]*dbt.Entity, error
 		}
 
 		// check for known legal name identifiers
-		if assets, err := session.DB().FindEntitiesByContent(ctx, oam.Identifier, time.Time{}, dbt.ContentFilters{
+		if assets, err := session.DB().FindEntitiesByContent(ctx, oam.Identifier, time.Time{}, 0, dbt.ContentFilters{
 			"unique_id": fmt.Sprintf("%s:%s", general.LegalName, name),
 		}); err == nil {
 			for _, a := range assets {

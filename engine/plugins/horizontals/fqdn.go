@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -88,9 +88,9 @@ func (h *horfqdn) check(e *et.Event) error {
 
 		var assets []*dbt.Entity
 		for _, im := range impacted {
-			if a, err := e.Session.DB().FindOneEntityByContent(ctx,
-				im.Asset.AssetType(), since, assetToContentFilters(im.Asset)); err == nil && a != nil {
-				assets = append(assets, a)
+			if ents, err := e.Session.DB().FindEntitiesByContent(ctx,
+				im.Asset.AssetType(), since, 1, assetToContentFilters(im.Asset)); err == nil {
+				assets = append(assets, ents[0])
 			} else if n := h.store(e, im.Asset); n != nil {
 				assets = append(assets, n)
 			}

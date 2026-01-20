@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -184,8 +184,11 @@ func (s *Server) PutAsset(ctx context.Context, sess et.Session, asset oam.Asset)
 		return "", err
 	}
 
-	entity, err := sess.DB().FindOneEntityByContent(ctx, asset.AssetType(), time.Time{}, filter)
-	if err != nil {
+	var entity *dbt.Entity
+	ents, err := sess.DB().FindEntitiesByContent(ctx, asset.AssetType(), time.Time{}, 1, filter)
+	if err == nil {
+		entity = ents[0]
+	} else {
 		entity, err = sess.DB().CreateAsset(ctx, asset)
 		if err != nil {
 			return entity.ID, err

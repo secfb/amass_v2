@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -47,10 +47,10 @@ func VizData(domains []string, since time.Time, db repository.Repository) ([]Nod
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		if ent, err := db.FindOneEntityByContent(ctx, oam.FQDN, since, types.ContentFilters{
+		if ents, err := db.FindEntitiesByContent(ctx, oam.FQDN, since, 1, types.ContentFilters{
 			"name": d,
-		}); err == nil && ent != nil {
-			if n, err := amassdb.FindByFQDNScope(ctx, db, ent, since); err == nil && len(n) > 0 {
+		}); err == nil {
+			if n, err := amassdb.FindByFQDNScope(ctx, db, ents[0], since); err == nil && len(n) > 0 {
 				next = append(next, n...)
 			}
 		}
@@ -66,7 +66,7 @@ func VizData(domains []string, since time.Time, db repository.Repository) ([]Nod
 		next = []*types.Entity{}
 
 		for _, a := range assets {
-			n := newNode(db, idx, a, since)
+			n := newNode(idx, a)
 			if n == nil {
 				continue
 			}
@@ -146,7 +146,7 @@ func VizData(domains []string, since time.Time, db repository.Repository) ([]Nod
 					for _, edge := range edges {
 						if to, err := db.FindEntityById(ctx, edge.ToEntity.ID); err == nil {
 							toID := idx
-							n2 := newNode(db, toID, to, since)
+							n2 := newNode(toID, to)
 							if n2 == nil {
 								continue
 							}
@@ -179,7 +179,7 @@ func VizData(domains []string, since time.Time, db repository.Repository) ([]Nod
 					for _, edge := range edges {
 						if from, err := db.FindEntityById(ctx, edge.FromEntity.ID); err == nil {
 							fromID := idx
-							n2 := newNode(db, fromID, from, since)
+							n2 := newNode(fromID, from)
 							if n2 == nil {
 								continue
 							}
@@ -210,7 +210,7 @@ func VizData(domains []string, since time.Time, db repository.Repository) ([]Nod
 	return viznodes, vizedges
 }
 
-func newNode(db repository.Repository, idx int, a *types.Entity, since time.Time) *Node {
+func newNode(idx int, a *types.Entity) *Node {
 	if a == nil || a.Asset == nil {
 		return nil
 	}

@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -99,16 +99,16 @@ func (s *Scope) reviewAndUpdate(c repository.Repository, req *Association) []*db
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if drs, err := c.FindEntitiesByType(ctx, oam.DomainRecord, s.startTime); err == nil && len(drs) > 0 {
+	if drs, err := c.FindEntitiesByType(ctx, oam.DomainRecord, s.startTime, 0); err == nil && len(drs) > 0 {
 		assocs = append(assocs, drs...)
 	}
-	if iprecs, err := c.FindEntitiesByType(ctx, oam.IPNetRecord, s.startTime); err == nil && len(iprecs) > 0 {
+	if iprecs, err := c.FindEntitiesByType(ctx, oam.IPNetRecord, s.startTime, 0); err == nil && len(iprecs) > 0 {
 		assocs = append(assocs, iprecs...)
 	}
-	if autnums, err := c.FindEntitiesByType(ctx, oam.AutnumRecord, s.startTime); err == nil && len(autnums) > 0 {
+	if autnums, err := c.FindEntitiesByType(ctx, oam.AutnumRecord, s.startTime, 0); err == nil && len(autnums) > 0 {
 		assocs = append(assocs, autnums...)
 	}
-	if certs, err := c.FindEntitiesByType(ctx, oam.TLSCertificate, s.startTime); err == nil && len(certs) > 0 {
+	if certs, err := c.FindEntitiesByType(ctx, oam.TLSCertificate, s.startTime, 0); err == nil && len(certs) > 0 {
 		assocs = append(assocs, certs...)
 	}
 
@@ -388,12 +388,13 @@ func (s *Scope) IsAddressInScope(c repository.Repository, ip *oamnet.IPAddress) 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	addr, err := c.FindOneEntityByContent(ctx, oam.IPAddress, s.startTime, dbt.ContentFilters{
+	ents, err := c.FindEntitiesByContent(ctx, oam.IPAddress, s.startTime, 1, dbt.ContentFilters{
 		"address": ip.Address.String(),
 	})
 	if err != nil {
 		return false
 	}
+	addr := ents[0]
 
 	rtype := 1
 	if ip.Type == "IPv6" {

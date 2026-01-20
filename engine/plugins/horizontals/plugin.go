@@ -108,9 +108,9 @@ func (h *horizPlugin) addAssociatedRelationship(e *et.Event, since time.Time, as
 			}
 
 			if match, result := e.Session.Scope().IsAssetInScope(impacted.Asset, conf); result >= conf && match != nil {
-				if a, err := e.Session.DB().FindOneEntityByContent(ctx,
-					match.AssetType(), since, assetToContentFilters(match)); err == nil && a != nil {
-					for _, assoc2 := range e.Session.Scope().AssetsWithAssociation(e.Session.DB(), a) {
+				if ents, err := e.Session.DB().FindEntitiesByContent(ctx,
+					match.AssetType(), since, 1, assetToContentFilters(match)); err == nil {
+					for _, assoc2 := range e.Session.Scope().AssetsWithAssociation(e.Session.DB(), ents[0]) {
 						h.makeAssocRelationshipEntries(e, assoc.Match, assoc2)
 					}
 				}
@@ -185,9 +185,11 @@ func (h *horizPlugin) process(e *et.Event, since time.Time, assets []*dbt.Entity
 			h.sweepAroundIPs(ctx, e, asset, since)
 			//h.sweepNetblock(e, v, src)
 		case *oamreg.IPNetRecord:
-			if a, err := e.Session.DB().FindOneEntityByContent(ctx, oam.Netblock, since, dbt.ContentFilters{
+			if ents, err := e.Session.DB().FindEntitiesByContent(ctx, oam.Netblock, since, 1, dbt.ContentFilters{
 				"cidr": v.CIDR.String(),
-			}); err == nil && a != nil {
+			}); err == nil {
+				a := ents[0]
+
 				if _, ok := a.Asset.(*oamnet.Netblock); ok {
 					h.ipPTRTargetsInScope(ctx, e, a, since)
 					h.sweepAroundIPs(ctx, e, a, since)
@@ -222,10 +224,10 @@ func (h *horizPlugin) ipPTRTargetsInScope(ctx context.Context, e *et.Event, nb *
 				continue
 			}
 
-			if a, err := e.Session.DB().FindOneEntityByContent(ctx, oam.FQDN, since, dbt.ContentFilters{
+			if ents, err := e.Session.DB().FindEntitiesByContent(ctx, oam.FQDN, since, 1, dbt.ContentFilters{
 				"name": utils.RemoveLastDot(reverse),
-			}); err == nil && a != nil {
-				if edges, err := e.Session.DB().OutgoingEdges(ctx, a, since, "dns_record"); err == nil && len(edges) > 0 {
+			}); err == nil {
+				if edges, err := e.Session.DB().OutgoingEdges(ctx, ents[0], since, "dns_record"); err == nil && len(edges) > 0 {
 					for _, edge := range edges {
 						if rel, ok := edge.Relation.(*oamdns.BasicDNSRelation); !ok || rel.Header.RRType != 12 {
 							continue
