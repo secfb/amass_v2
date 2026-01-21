@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -127,8 +127,16 @@ func (r *ipaddrEndpoint) process(e *et.Event, findings []*support.Finding) {
 }
 
 func sweepCallback(e *et.Event, ip *network.IPAddress, src *et.Source) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	// ensure we do not work on an IP address that was processed previously
+	_, err := e.Session.DB().FindEntitiesByContent(ctx, oam.IPAddress, e.Session.StartTime(), 1, dbt.ContentFilters{
+		"address": ip.Address.String(),
+	})
+	if err == nil {
+		return
+	}
 
 	if entity, err := e.Session.DB().CreateAsset(ctx, ip); err == nil && entity != nil {
 		_, _ = e.Session.DB().CreateEntityProperty(ctx, entity, &general.SourceProperty{

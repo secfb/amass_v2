@@ -42,7 +42,7 @@ func (h *horfqdn) check(e *et.Event) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	var ptrs []*dbt.Edge
