@@ -1,4 +1,4 @@
-// Copyright © by Jeff Foley 2017-2025. All rights reserved.
+// Copyright © by Jeff Foley 2017-2026. All rights reserved.
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -31,7 +31,9 @@ func NewLogger() *Logger {
 
 // Publish sends a log message to the logger.
 func (l *Logger) Publish(msg string) {
-	l.q.Append(msg)
+	if len(l.subscribed) > 0 {
+		l.q.Append(msg)
+	}
 }
 
 // Write allows the Logger to be used as a Writer and in structured logging.
