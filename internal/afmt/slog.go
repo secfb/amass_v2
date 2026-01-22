@@ -14,7 +14,7 @@ import (
 )
 
 func JSONLogToRecord(logstr string) (slog.Record, error) {
-	j := make(map[string]interface{})
+	j := make(map[string]any)
 	// unmarshal the log message sent from the engine session
 	if err := json.Unmarshal([]byte(logstr), &j); err != nil {
 		return slog.Record{}, errors.New("failed to unmarchal the JSON")
@@ -58,7 +58,7 @@ func JSONLogToRecord(logstr string) (slog.Record, error) {
 	return record, nil
 }
 
-func jsonToAttrs(jmap map[string]interface{}) []slog.Attr {
+func jsonToAttrs(jmap map[string]any) []slog.Attr {
 	var attrs []slog.Attr
 
 	for k, v := range jmap {
@@ -69,7 +69,7 @@ func jsonToAttrs(jmap map[string]interface{}) []slog.Attr {
 			attrs = append(attrs, jsonNumberToAttr(k, val))
 		case string:
 			attrs = append(attrs, slog.String(k, val))
-		case map[string]interface{}:
+		case map[string]any:
 			if a := jsonToAttrs(val); len(a) > 0 {
 				attrs = append(attrs, slog.Attr{
 					Key:   k,

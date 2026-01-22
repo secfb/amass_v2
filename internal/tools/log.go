@@ -6,6 +6,7 @@ package tools
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -18,16 +19,18 @@ import (
 	slogsyslog "github.com/samber/slog-syslog/v2"
 )
 
-func WriteLogMessage(l *slog.Logger, message string) {
+func WriteLogMessage(l *slog.Logger, message string) error {
 	record, err := afmt.JSONLogToRecord(message)
 	if err != nil {
-		return
+		return err
 	}
 
 	ctx := context.Background()
 	if l.Handler().Enabled(ctx, record.Level) {
-		_ = l.Handler().Handle(ctx, record)
+		return l.Handler().Handle(ctx, record)
 	}
+
+	return errors.New("logger handler is not enabled")
 }
 
 func NewFileLogger(dir, logfile string) (*slog.Logger, error) {

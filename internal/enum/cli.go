@@ -248,7 +248,9 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 			case <-done:
 				return
 			case message := <-messages:
-				tools.WriteLogMessage(l, message)
+				if err := tools.WriteLogMessage(l, message); err != nil {
+					fmt.Println(err.Error())
+				}
 			case <-t.C:
 				if stats, err := c.SessionStats(token); err == nil && stats != nil {
 					stotal := max(count, stats.WorkItemsTotal)
