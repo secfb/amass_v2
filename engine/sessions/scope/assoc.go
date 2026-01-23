@@ -312,7 +312,7 @@ func (s *Scope) awayFromAssetsWithAssociation(c repository.Repository, assoc *db
 		}
 	}
 	if len(results) == 0 {
-		return nil, errors.New("zero assets were found in-scope one hop forward from the provided asset")
+		return nil, errors.New("zero assets were found in-scope one hop away from the provided asset")
 	}
 	return results, nil
 }
@@ -375,7 +375,7 @@ func (s *Scope) towardsAssetsWithAssociation(c repository.Repository, asset *dbt
 		}
 	}
 	if len(results) == 0 {
-		return nil, errors.New("zero assets were found in-scope one hop forward from the provided asset")
+		return nil, errors.New("zero assets were found in-scope one hop toward the provided asset")
 	}
 	return results, nil
 }

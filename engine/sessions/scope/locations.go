@@ -45,16 +45,17 @@ func (s *Scope) Locations() []*contact.Location {
 }
 
 func (s *Scope) matchesLocation(loc *contact.Location, conf int) (oam.Asset, int) {
+	if loc.BuildingNumber == "" {
+		return nil, 0
+	}
+
 	for _, loc2 := range s.Locations() {
-		if loc.BuildingNumber == "" || loc2.BuildingNumber == "" || loc.BuildingNumber != loc2.BuildingNumber {
+		if loc.BuildingNumber != loc2.BuildingNumber {
 			continue
 		}
 
-		lstr1 := fmt.Sprintf("%s %s %s %s %s", loc.BuildingNumber,
-			loc.StreetName, loc.City, loc.Province, loc.PostalCode)
-		lstr2 := fmt.Sprintf("%s %s %s %s %s", loc2.BuildingNumber,
-			loc2.StreetName, loc2.City, loc2.Province, loc2.PostalCode)
-
+		lstr1 := fmt.Sprintf("%s %s %s %s", loc.BuildingNumber, loc.StreetName, loc.City, loc.Province)
+		lstr2 := fmt.Sprintf("%s %s %s %s", loc2.BuildingNumber, loc2.StreetName, loc2.City, loc2.Province)
 		if strings.EqualFold(lstr1, lstr2) {
 			return loc2, 100
 		}

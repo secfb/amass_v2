@@ -103,12 +103,39 @@ func (d *dynamicDispatcher) completedCallback(ede *et.EventDataElement) {
 
 func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 	if e == nil || e.Entity == nil || e.Session == nil {
-		return nil
+		return errors.New("the event cannot be nil and must include the entity and session")
 	}
 
 	// do not schedule the same asset more than once
 	if e.Session.Backlog().Has(e.Entity) {
 		return nil
+	}
+
+	if err := d.meta.InsertEntry(e.Session.ID().String(), e.Entity.ID, e.Meta); err != nil {
+		return err
+	}
+
+	err := e.Session.Backlog().Enqueue(e.Entity)
+	if err != nil {
+		return err
+	}
+
+	atype := e.Entity.Asset.AssetType()
+	pool := d.getOrCreatePool(atype)
+	if pool == nil {
+		return fmt.Errorf("no pipeline pool available for asset type %s", string(atype))
+	}
+
+	return pool.Dispatch(e)
+}
+
+func (d *dynamicDispatcher) ResubmitEvent(e *et.Event) error {
+	if e == nil || e.Entity == nil || e.Session == nil {
+		return errors.New("the event cannot be nil and must include the entity and session")
+	}
+
+	if !e.Session.Backlog().Has(e.Entity) {
+		return errors.New("the event must already be in the backlog")
 	}
 
 	if err := d.meta.InsertEntry(e.Session.ID().String(), e.Entity.ID, e.Meta); err != nil {

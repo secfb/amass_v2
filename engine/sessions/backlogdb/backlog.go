@@ -44,7 +44,7 @@ func (b *BacklogDB) Has(ctx context.Context, entityID string) (bool, error) {
 }
 
 // Enqueue inserts a new queued item if it does not already exist.
-// Idempotent: if entity_id already exists, it does nothing.
+// If entity_id already exists, it sets the state to queued.
 func (b *BacklogDB) Enqueue(ctx context.Context, atype oam.AssetType, entityID string) error {
 	if entityID == "" {
 		return ErrEmptyEntityID
@@ -53,8 +53,12 @@ func (b *BacklogDB) Enqueue(ctx context.Context, atype oam.AssetType, entityID s
 	_, err := b.db.ExecContext(ctx, `
 		INSERT INTO backlog_items(created_at, updated_at, etype, entity_id, state, lease_until)
 		VALUES(?, ?, ?, ?, ?, 0)
-		ON CONFLICT(entity_id) DO NOTHING`,
-		t, t, string(atype), entityID, StateQueued,
+		ON CONFLICT(entity_id) DO UPDATE SET
+			updated_at  = excluded.updated_at,
+			state       = ?,
+			lease_owner = NULL,
+			lease_until = 0`,
+		t, t, string(atype), entityID, StateQueued, StateQueued,
 	)
 	return err
 }
@@ -69,10 +73,10 @@ func (b *BacklogDB) EnqueueDone(ctx context.Context, atype oam.AssetType, entity
 		INSERT INTO backlog_items(created_at, updated_at, etype, entity_id, state, lease_until)
 		VALUES(?, ?, ?, ?, ?, 0)
 		ON CONFLICT(entity_id) DO UPDATE SET
-			updated_at = excluded.updated_at,
-			state      = ?,
-			lease_owner= NULL,
-			lease_until= 0`,
+			updated_at  = excluded.updated_at,
+			state       = ?,
+			lease_owner = NULL,
+			lease_until = 0`,
 		t, t, string(atype), entityID, StateDone, StateDone,
 	)
 	return err

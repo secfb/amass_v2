@@ -324,7 +324,7 @@ func (h *horizPlugin) sweepAroundIPs(ctx context.Context, e *et.Event, nb *dbt.E
 	}
 */
 
-func (h *horizPlugin) submitIPAddresses(e *et.Event, asset *oamnet.IPAddress, src *et.Source) {
+func (h *horizPlugin) submitIPAddress(e *et.Event, asset *oamnet.IPAddress, src *et.Source) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

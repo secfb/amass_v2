@@ -126,6 +126,7 @@ func (h *horfqdn) checkPTR(e *et.Event, edges []*dbt.Edge, fqdn *dbt.Entity, sin
 			}
 
 			for _, edge := range edges {
+				// acquire the FQDN asset that represents the IP address (a.k.a. the pointer record)
 				to, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
 				if err != nil {
 					continue
@@ -143,7 +144,7 @@ func (h *horfqdn) checkPTR(e *et.Event, edges []*dbt.Edge, fqdn *dbt.Entity, sin
 						if e.Session.Config().Active {
 							size = 250
 						}
-						h.plugin.submitIPAddresses(e, ip, h.plugin.source)
+						h.plugin.submitIPAddress(e, ip, h.plugin.source)
 						support.IPAddressSweep(e, ip, h.plugin.source, size, h.plugin.submitIPAddresses)
 						e.Session.Log().Info(fmt.Sprintf("[%s: %s] was added to the session scope", ip.AssetType(), ip.Key()))
 					}

@@ -284,6 +284,7 @@ func AddSLDInScope(e *et.Event) {
 		e.Meta = &FQDNMeta{
 			SLDInScope: true,
 		}
+		return
 	}
 
 	if fm, ok := e.Meta.(*FQDNMeta); ok {

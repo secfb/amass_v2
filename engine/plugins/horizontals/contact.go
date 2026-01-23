@@ -76,13 +76,13 @@ func (h *horContact) lookup(e *et.Event, entity *dbt.Entity, since time.Time, co
 	var results []*scope.Association
 	if edges, err := e.Session.DB().OutgoingEdges(ctx, entity, since, labels...); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
-			entity, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
+			to, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
 			if err != nil {
 				continue
 			}
 			// check if these asset discoveries could change the scope
 			if assocs, err := e.Session.Scope().IsAssociated(e.Session.DB(), &scope.Association{
-				Submission:  entity,
+				Submission:  to,
 				Confidence:  conf,
 				ScopeChange: true,
 			}); err == nil && len(assocs) > 0 {
