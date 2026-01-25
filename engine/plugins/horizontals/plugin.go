@@ -94,9 +94,13 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horContact.name,
 		Position:     10,
 		MaxInstances: support.MaxHandlerInstances,
-		Transforms:   []string{string(oam.ContactRecord)},
-		EventType:    oam.ContactRecord,
-		Callback:     h.horContact.check,
+		Transforms: []string{
+			string(oam.Organization),
+			string(oam.Location),
+			string(oam.Identifier),
+		},
+		EventType: oam.ContactRecord,
+		Callback:  h.horContact.check,
 	}); err != nil {
 		return err
 	}
@@ -166,15 +170,15 @@ func (h *horizPlugin) process(e *et.Event, since time.Time, assets []*dbt.Entity
 			}
 		}
 
+		_, _ = e.Session.DB().CreateEntityProperty(ctx, asset, &oamgen.SourceProperty{
+			Source:     h.source.Name,
+			Confidence: h.source.Confidence,
+		})
+
 		_ = e.Dispatcher.DispatchEvent(&et.Event{
 			Name:    asset.Asset.Key(),
 			Entity:  asset,
 			Session: e.Session,
-		})
-
-		_, _ = e.Session.DB().CreateEntityProperty(ctx, asset, &oamgen.SourceProperty{
-			Source:     h.source.Name,
-			Confidence: h.source.Confidence,
 		})
 	}
 }

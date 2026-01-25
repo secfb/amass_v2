@@ -5,9 +5,7 @@
 package horizontals
 
 import (
-	"context"
 	"errors"
-	"time"
 
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
@@ -41,6 +39,9 @@ func (h *horContact) check(e *et.Event) error {
 	if conf == -1 {
 		conf = matches.Confidence(string(oam.ContactRecord))
 	}
+	if conf == -1 {
+		return nil
+	}
 
 	since, err := support.TTLStartTime(e.Session.Config(),
 		string(oam.ContactRecord), string(oam.ContactRecord), h.plugin.name)
@@ -48,7 +49,7 @@ func (h *horContact) check(e *et.Event) error {
 		return nil
 	}
 
-	if assocs := h.lookup(e, e.Entity, since, conf); len(assocs) > 0 {
+	if assocs := h.lookup(e, e.Entity, conf); len(assocs) > 0 {
 		var impacted []*dbt.Entity
 
 		for _, assoc := range assocs {
@@ -65,28 +66,14 @@ func (h *horContact) check(e *et.Event) error {
 	return nil
 }
 
-func (h *horContact) lookup(e *et.Event, entity *dbt.Entity, since time.Time, conf int) []*et.Association {
-	labels := []string{"organization", "location", "id"}
-
-	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 5*time.Second)
-	defer cancel()
-
-	var results []*et.Association
-	if edges, err := e.Session.DB().OutgoingEdges(ctx, entity, since, labels...); err == nil && len(edges) > 0 {
-		for _, edge := range edges {
-			to, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
-			if err != nil {
-				continue
-			}
-			// check if these asset discoveries could change the scope
-			if assocs, err := e.Session.Scope().IsAssociated(&et.Association{
-				Submission:  to,
-				Confidence:  conf,
-				ScopeChange: true,
-			}); err == nil && len(assocs) > 0 {
-				results = append(results, assocs...)
-			}
-		}
+func (h *horContact) lookup(e *et.Event, asset *dbt.Entity, conf int) []*et.Association {
+	assocs, err := e.Session.Scope().IsAssociated(&et.Association{
+		Submission:  asset,
+		Confidence:  conf,
+		ScopeChange: true,
+	})
+	if err != nil {
+		return nil
 	}
-	return results
+	return assocs
 }

@@ -293,7 +293,6 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 	case <-done:
 	case <-interrupt:
 		close(done)
-		return
 	}
 
 	if !args.Options.Silent {

@@ -19,6 +19,7 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 	oamcert "github.com/owasp-amass/open-asset-model/certificate"
 	oamcon "github.com/owasp-amass/open-asset-model/contact"
+	oamdns "github.com/owasp-amass/open-asset-model/dns"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 	oamreg "github.com/owasp-amass/open-asset-model/registration"
 	"golang.org/x/net/publicsuffix"
@@ -48,13 +49,6 @@ func (s *Scope) IsAssociated(req *et.Association) ([]*et.Association, error) {
 					impacted = append(impacted, im)
 				}
 			}
-			// review all previously seen assets that provide association for scope changes
-			for size := len(impacted); size > 0; {
-				added := s.reviewAndUpdate(req)
-
-				size = len(added)
-				impacted = append(impacted, added...)
-			}
 
 			result.ImpactedAssets = impacted
 			if len(result.ImpactedAssets) > 0 {
@@ -80,43 +74,6 @@ func (s *Scope) addScopeChangesToRationale(result *et.Association) {
 	result.Rationale += ". The following assets were added to the session scope: " + strings.Join(changes, ", ")
 }
 
-func (s *Scope) reviewAndUpdate(req *et.Association) []*dbt.Entity {
-	var assocs []*dbt.Entity
-
-	ctx, cancel := context.WithTimeout(s.Session.Ctx(), 10*time.Second)
-	defer cancel()
-
-	since := s.ttlStartTime(oam.DomainRecord, oam.DomainRecord)
-	if drs, err := s.Session.DB().FindEntitiesByType(ctx, oam.DomainRecord, since, 0); err == nil && len(drs) > 0 {
-		assocs = append(assocs, drs...)
-	}
-
-	since = s.ttlStartTime(oam.IPNetRecord, oam.IPNetRecord)
-	if iprecs, err := s.Session.DB().FindEntitiesByType(ctx, oam.IPNetRecord, since, 0); err == nil && len(iprecs) > 0 {
-		assocs = append(assocs, iprecs...)
-	}
-
-	since = s.ttlStartTime(oam.AutnumRecord, oam.AutnumRecord)
-	if autnums, err := s.Session.DB().FindEntitiesByType(ctx, oam.AutnumRecord, since, 0); err == nil && len(autnums) > 0 {
-		assocs = append(assocs, autnums...)
-	}
-
-	since = s.ttlStartTime(oam.TLSCertificate, oam.TLSCertificate)
-	if certs, err := s.Session.DB().FindEntitiesByType(ctx, oam.TLSCertificate, since, 0); err == nil && len(certs) > 0 {
-		assocs = append(assocs, certs...)
-	}
-
-	var impacted []*dbt.Entity
-	for _, assoc := range s.checkRelatedAssetsforAssoc(req, assocs) {
-		for _, a := range append(assoc.ImpactedAssets, assoc.Match) {
-			if s.Add(a.Asset) {
-				impacted = append(impacted, a)
-			}
-		}
-	}
-	return impacted
-}
-
 func (s *Scope) checkRelatedAssetsforAssoc(req *et.Association, assocs []*dbt.Entity) []*et.Association {
 	var results []*et.Association
 
@@ -129,14 +86,17 @@ func (s *Scope) checkRelatedAssetsforAssoc(req *et.Association, assocs []*dbt.En
 			if req.ScopeChange {
 				impacted = append(impacted, asset)
 			}
-			if match, conf := s.IsAssetInScope(asset.Asset, req.Confidence); conf > 0 {
+
+			atype := asset.Asset.AssetType()
+			rconf := s.confidence(atype, atype)
+			if match, conf := s.IsAssetInScope(asset.Asset, rconf); conf > 0 {
 				if conf > best {
 					best = conf
 
 					aa := assoc.Asset
 					sa := req.Submission.Asset
 					msg = fmt.Sprintf("[%s: %s] is related to an asset with associative value [%s: %s], ", sa.AssetType(), sa.Key(), aa.AssetType(), aa.Key())
-					msg += fmt.Sprintf("which has a related asset [%s: %s] that was determined associated with [%s: %s] at a confidence of %d out of 100",
+					msg += fmt.Sprintf("which has a related asset [%s: %s] that is in scope: matches [%s: %s] at a confidence of %d out of 100",
 						asset.Asset.AssetType(), asset.Asset.Key(), match.AssetType(), match.Key(), conf)
 				}
 			}
@@ -168,15 +128,9 @@ func (s *Scope) assetsRelatedToAssetWithAssoc(assoc *dbt.Entity) []*dbt.Entity {
 			var found bool
 
 			switch v := a.Asset.(type) {
-			/*case *oamdns.FQDN:
-			ctx, cancel := context.WithTimeout(s.Session.Ctx(), 3*time.Second)
-			defer cancel()
-
-			since := s.ttlStartTime(oam.FQDN, oam.FQDN)
-			if ents, err := s.Session.DB().IncomingEdges(ctx, a, since, "node"); err != nil || len(ents) == 0 {
+			case *oamdns.FQDN:
 				found = true
 				results = append(results, a)
-			}*/
 			case *oamorg.Organization:
 				found = true
 				if cert, ok := assoc.Asset.(*oamcert.TLSCertificate); !ok || s.orgNameSimilarToCommon(v, cert) {
@@ -258,10 +212,6 @@ func (s *Scope) awayFromAssetsWithAssociation(assoc *dbt.Entity) ([]*dbt.Entity,
 	var outRels, inRels []string
 	var outSince, inSince time.Time
 	switch assoc.Asset.AssetType() {
-	/*case oam.FQDN:
-	in = true
-	inRels = append(inRels, "node")
-	inSince = s.ttlStartTime(oam.FQDN, oam.FQDN)*/
 	case oam.DomainRecord:
 		out = true
 		outRels = append(outRels, "registrant_contact")
@@ -410,6 +360,15 @@ func (s *Scope) ttlStartTime(from, to oam.AssetType) time.Time {
 		}
 	}
 	return time.Time{}
+}
+
+func (s *Scope) confidence(from, to oam.AssetType) int {
+	if matches, err := s.Session.Config().CheckTransformations(string(from), string(to)); err == nil && matches != nil {
+		if conf := matches.Confidence(string(to)); conf >= 0 {
+			return conf
+		}
+	}
+	return -1
 }
 
 func (s *Scope) orgNameSimilarToCommon(o *oamorg.Organization, cert *oamcert.TLSCertificate) bool {
