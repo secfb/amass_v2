@@ -42,7 +42,9 @@ func (r *ipaddrEndpoint) check(e *et.Event) error {
 	if reserved, _ := amassnet.IsReservedAddress(addrstr); reserved {
 		return nil
 	}
-	if _, conf := e.Session.Scope().IsAssetInScope(ip, 0); conf > 0 {
+
+	// only perform the probe if the address is in scope
+	if _, conf := e.Session.Scope().IsAssetInScope(ip, 0); conf <= 0 {
 		return nil
 	}
 
