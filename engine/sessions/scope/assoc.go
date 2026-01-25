@@ -340,9 +340,6 @@ func (s *Scope) towardsAssetsWithAssociation(asset *dbt.Entity) ([]*dbt.Entity, 
 		out = true
 		outRels = append(outRels, "registration")
 		outSince = s.ttlStartTime(oam.Netblock, oam.IPNetRecord)
-		in = true
-		inRels = append(inRels, "announces")
-		inSince = s.ttlStartTime(oam.Netblock, oam.AutonomousSystem)
 	case oam.AutonomousSystem:
 		out = true
 		outRels = append(outRels, "registration")
