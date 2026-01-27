@@ -29,10 +29,6 @@ func (s *Scope) IsAssociated(req *et.Association) ([]*et.Association, error) {
 	if req == nil || req.Submission == nil || req.Submission.Asset == nil {
 		return nil, errors.New("invalid request")
 	}
-	if atype := req.Submission.Asset.AssetType(); atype != oam.FQDN &&
-		atype != oam.Identifier && atype != oam.Organization && atype != oam.Location {
-		return nil, errors.New("the request included a submission with an unsupported asset type")
-	}
 
 	// related assets that provide association matching value
 	assocs := s.AssetsWithAssociation(req.Submission)
@@ -260,7 +256,6 @@ func (s *Scope) awayFromAssetsWithAssociation(assoc *dbt.Entity) ([]*dbt.Entity,
 		if !since1.IsZero() && since1.Before(outSince) {
 			outSince = since1
 		}
-
 	}
 	if out {
 		ctx, cancel := context.WithTimeout(s.Session.Ctx(), 10*time.Second)
