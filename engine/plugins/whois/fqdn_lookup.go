@@ -72,7 +72,7 @@ func (r *fqdnLookup) lookup(e *et.Event, name string, src *et.Source, since time
 	return nil
 }
 
-func (r *fqdnLookup) query(e *et.Event, name string, asset *dbt.Entity, src *et.Source) (*dbt.Entity, *whoisparser.WhoisInfo) {
+func (r *fqdnLookup) query(e *et.Event, name string, fent *dbt.Entity, src *et.Source) (*dbt.Entity, *whoisparser.WhoisInfo) {
 	_ = r.plugin.rlimit.Wait(e.Session.Ctx())
 
 	resp, err := whoisclient.Whois(name)
@@ -82,14 +82,14 @@ func (r *fqdnLookup) query(e *et.Event, name string, asset *dbt.Entity, src *et.
 		return nil, nil
 	}
 
-	return r.store(e, resp, asset, src)
+	return r.store(e, resp, fent, src)
 }
 
-func (r *fqdnLookup) store(e *et.Event, resp string, asset *dbt.Entity, src *et.Source) (*dbt.Entity, *whoisparser.WhoisInfo) {
-	fqdn := asset.Asset.(*oamdns.FQDN)
+func (r *fqdnLookup) store(e *et.Event, resp string, fent *dbt.Entity, src *et.Source) (*dbt.Entity, *whoisparser.WhoisInfo) {
+	fqdn := fent.Asset.(*oamdns.FQDN)
 
 	info, err := whoisparser.Parse(resp)
-	if err != nil || !strings.EqualFold(info.Domain.Name, fqdn.Name) {
+	if err != nil || !strings.EqualFold(info.Domain.Domain, fqdn.Name) {
 		msg := fmt.Sprintf("failed to parse the WHOIS record for %s", fqdn.Name)
 		e.Session.Log().Error(msg, slog.Group("plugin", "name", r.plugin.name, "handler", r.name))
 		return nil, nil
@@ -127,7 +127,7 @@ func (r *fqdnLookup) store(e *et.Event, resp string, asset *dbt.Entity, src *et.
 	if err == nil && autasset != nil {
 		if edge, err := e.Session.DB().CreateEdge(ctx, &dbt.Edge{
 			Relation:   &general.SimpleRelation{Name: "registration"},
-			FromEntity: asset,
+			FromEntity: fent,
 			ToEntity:   autasset,
 		}); err == nil && edge != nil {
 			_, _ = e.Session.DB().CreateEdgeProperty(ctx, edge, &general.SourceProperty{
@@ -135,7 +135,7 @@ func (r *fqdnLookup) store(e *et.Event, resp string, asset *dbt.Entity, src *et.
 				Confidence: src.Confidence,
 			})
 			msg := fmt.Sprintf("successfully acquired the WHOIS record for %s", fqdn.Name)
-			e.Session.Log().Error(msg, slog.Group("plugin", "name", r.plugin.name, "handler", r.name))
+			e.Session.Log().Info(msg, slog.Group("plugin", "name", r.plugin.name, "handler", r.name))
 		}
 	}
 
