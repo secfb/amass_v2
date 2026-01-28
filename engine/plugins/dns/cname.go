@@ -65,7 +65,7 @@ func (d *dnsCNAME) lookup(e *et.Event, fqdn *dbt.Entity, since time.Time) []*rel
 		return alias
 	}
 
-	if assets := d.plugin.lookupWithinTTL(e.Session, n.Name, oam.FQDN, since, oam.BasicDNSRelation, 5); len(assets) > 0 {
+	if assets := d.plugin.lookupWithinTTL(e.Session, fqdn, oam.FQDN, since, oam.BasicDNSRelation, 5); len(assets) > 0 {
 		for _, a := range assets {
 			alias = append(alias, &relAlias{alias: fqdn, target: a})
 		}

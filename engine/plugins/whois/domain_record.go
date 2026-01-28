@@ -62,12 +62,12 @@ func (r *domrec) check(e *et.Event) error {
 }
 
 func (r *domrec) lookup(e *et.Event, asset *dbt.Entity, src *et.Source, m *config.Matches) []*support.Finding {
-	var rtypes []string
-	var largest time.Time
 	var findings []*support.Finding
-	sinces := make(map[string]time.Time)
 
-	for i, atype := range r.transforms {
+	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 2*time.Minute)
+	defer cancel()
+
+	for _, atype := range r.transforms {
 		if !m.IsMatch(atype) {
 			continue
 		}
@@ -76,48 +76,35 @@ func (r *domrec) lookup(e *et.Event, asset *dbt.Entity, src *et.Source, m *confi
 		if err != nil {
 			continue
 		}
-		sinces[atype] = since
 
-		if i == 0 || since.Before(largest) {
-			largest = since
-		}
-
+		var rtypes []string
 		switch atype {
 		case string(oam.FQDN):
 			rtypes = append(rtypes, "name_server", "whois_server")
 		case string(oam.ContactRecord):
 			rtypes = append(rtypes, "registrant_contact", "admin_contact", "technical_contact", "billing_contact")
 		}
-	}
 
-	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 5*time.Second)
-	defer cancel()
+		if edges, err := e.Session.DB().OutgoingEdges(ctx, asset, since, rtypes...); err == nil && len(edges) > 0 {
+			for _, edge := range edges {
+				to, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
+				if err != nil {
+					continue
+				}
 
-	if edges, err := e.Session.DB().OutgoingEdges(ctx, asset, largest, rtypes...); err == nil && len(edges) > 0 {
-		for _, edge := range edges {
-			a, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
-			if err != nil {
-				continue
+				if !r.oneOfSources(ctx, e, to, src, since) {
+					continue
+				}
+
+				dr := asset.Asset.(*oamreg.DomainRecord)
+				findings = append(findings, &support.Finding{
+					From:     asset,
+					FromName: "DomainRecord: " + dr.Domain,
+					To:       to,
+					ToName:   to.Asset.Key(),
+					Rel:      edge.Relation,
+				})
 			}
-			totype := string(a.Asset.AssetType())
-
-			since, ok := sinces[totype]
-			if !ok || (ok && a.LastSeen.Before(since)) {
-				continue
-			}
-
-			if !r.oneOfSources(ctx, e, a, src, since) {
-				continue
-			}
-
-			dr := asset.Asset.(*oamreg.DomainRecord)
-			findings = append(findings, &support.Finding{
-				From:     asset,
-				FromName: "DomainRecord: " + dr.Domain,
-				To:       a,
-				ToName:   a.Asset.Key(),
-				Rel:      edge.Relation,
-			})
 		}
 	}
 

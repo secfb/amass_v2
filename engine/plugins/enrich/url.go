@@ -11,7 +11,6 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/caffix/stringset"
 	"github.com/owasp-amass/amass/v5/config"
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
@@ -120,14 +119,10 @@ func (u *urlexpand) check(e *et.Event) error {
 }
 
 func (u *urlexpand) lookup(e *et.Event, asset *dbt.Entity, m *config.Matches) []*support.Finding {
-	rtypes := stringset.New()
-	defer rtypes.Close()
-
-	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 60*time.Second)
 	defer cancel()
 
 	var findings []*support.Finding
-	sinces := make(map[string]time.Time)
 	for _, atype := range u.transforms {
 		if !m.IsMatch(atype) {
 			continue
@@ -137,40 +132,35 @@ func (u *urlexpand) lookup(e *et.Event, asset *dbt.Entity, m *config.Matches) []
 		if err != nil {
 			continue
 		}
-		sinces[atype] = since
 
+		var label string
 		switch atype {
 		case string(oam.FQDN):
-			rtypes.Insert("domain")
+			label = "domain"
 		case string(oam.IPAddress):
-			rtypes.Insert("ip_address")
+			label = "ip_address"
 		case string(oam.Service):
-			rtypes.Insert("port")
+			label = "port"
 		case string(oam.File):
-			rtypes.Insert("file")
+			label = "file"
 		}
-	}
 
-	if edges, err := e.Session.DB().OutgoingEdges(ctx, asset, time.Time{}, rtypes.Slice()...); err == nil && len(edges) > 0 {
-		for _, edge := range edges {
-			a, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
-			if err != nil {
-				continue
+		if edges, err := e.Session.DB().OutgoingEdges(ctx, asset, since, label); err == nil && len(edges) > 0 {
+			for _, edge := range edges {
+				to, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID)
+				if err != nil {
+					continue
+				}
+
+				oamu := asset.Asset.(*url.URL)
+				findings = append(findings, &support.Finding{
+					From:     asset,
+					FromName: "URL: " + oamu.Raw,
+					To:       to,
+					ToName:   to.Asset.Key(),
+					Rel:      edge.Relation,
+				})
 			}
-
-			totype := string(a.Asset.AssetType())
-			if since, ok := sinces[totype]; !ok || (ok && a.LastSeen.Before(since)) {
-				continue
-			}
-
-			oamu := asset.Asset.(*url.URL)
-			findings = append(findings, &support.Finding{
-				From:     asset,
-				FromName: "URL: " + oamu.Raw,
-				To:       a,
-				ToName:   a.Asset.Key(),
-				Rel:      edge.Relation,
-			})
 		}
 	}
 

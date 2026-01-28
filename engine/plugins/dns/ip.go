@@ -50,7 +50,7 @@ func (d *dnsIP) check(e *et.Event) error {
 
 	var ips []*relIP
 	if support.AssetMonitoredWithinTTL(e.Session, e.Entity, d.source, since) {
-		ips = append(ips, d.lookup(e, fqdn.Name, since)...)
+		ips = append(ips, d.lookup(e, e.Entity, since)...)
 	} else {
 		ips = append(ips, d.query(e, e.Entity)...)
 	}
@@ -81,7 +81,7 @@ func (d *dnsIP) check(e *et.Event) error {
 	return nil
 }
 
-func (d *dnsIP) lookup(e *et.Event, fqdn string, since time.Time) []*relIP {
+func (d *dnsIP) lookup(e *et.Event, fqdn *dbt.Entity, since time.Time) []*relIP {
 	var ips []*relIP
 
 	if assets := d.plugin.lookupWithinTTL(e.Session, fqdn, oam.IPAddress, since, oam.BasicDNSRelation, 1, 28); len(assets) > 0 {

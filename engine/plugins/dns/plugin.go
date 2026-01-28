@@ -171,7 +171,7 @@ func (d *dnsPlugin) Stop() {
 	d.log.Info("Plugin stopped")
 }
 
-func (d *dnsPlugin) lookupWithinTTL(session et.Session, name string, atype oam.AssetType, since time.Time, reltype oam.RelationType, rrtypes ...int) []*dbt.Entity {
+func (d *dnsPlugin) lookupWithinTTL(session et.Session, fent *dbt.Entity, atype oam.AssetType, since time.Time, reltype oam.RelationType, rrtypes ...int) []*dbt.Entity {
 	var results []*dbt.Entity
 
 	if len(rrtypes) == 0 || since.IsZero() {
@@ -181,31 +181,10 @@ func (d *dnsPlugin) lookupWithinTTL(session et.Session, name string, atype oam.A
 	ctx, cancel := context.WithTimeout(session.Ctx(), 30*time.Second)
 	defer cancel()
 
-	ents, err := session.DB().FindEntitiesByContent(ctx, oam.FQDN, time.Time{}, 1, dbt.ContentFilters{
-		"name": name,
-	})
-	if err != nil {
-		return results
-	}
-	entity := ents[0]
-
-	if edges, err := session.DB().OutgoingEdges(ctx, entity, since, "dns_record"); err == nil && len(edges) > 0 {
+	if edges, err := session.DB().OutgoingEdges(ctx, fent, since, "dns_record"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
-			if tags, err := session.DB().FindEdgeTags(ctx, edge, since, d.source.Name); err == nil && len(tags) > 0 {
-				var found bool
-
-				for _, tag := range tags {
-					if _, ok := tag.Property.(*general.SourceProperty); ok {
-						found = true
-						break
-					}
-				}
-				if !found {
-					continue
-				}
-			}
-
 			var rrtype int
+
 			switch v := edge.Relation.(type) {
 			case *oamdns.BasicDNSRelation:
 				if v.RelationType() == reltype {
@@ -221,13 +200,33 @@ func (d *dnsPlugin) lookupWithinTTL(session et.Session, name string, atype oam.A
 				}
 			}
 
+			var found bool
 			for _, t := range rrtypes {
-				if rrtype == t {
-					if to, err := session.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && to != nil && to.Asset.AssetType() == atype {
-						results = append(results, to)
+				if t == rrtype {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+
+			if tags, err := session.DB().FindEdgeTags(ctx, edge, since, d.source.Name); err == nil && len(tags) > 0 {
+				var found bool
+
+				for _, tag := range tags {
+					if _, ok := tag.Property.(*general.SourceProperty); ok {
+						found = true
 						break
 					}
 				}
+				if !found {
+					continue
+				}
+			}
+
+			if to, err := session.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && to != nil && to.Asset.AssetType() == atype {
+				results = append(results, to)
 			}
 		}
 	}

@@ -172,15 +172,14 @@ func (d *dnsSubs) lookup(e *et.Event, subdomain string, since time.Time) []*relS
 	}
 	fqdn := ents[0]
 
-	n := fqdn.Asset.Key()
 	// Check for NS records within the since period
-	if assets := d.plugin.lookupWithinTTL(e.Session, n, oam.FQDN, since, oam.BasicDNSRelation, 2); len(assets) > 0 {
+	if assets := d.plugin.lookupWithinTTL(e.Session, fqdn, oam.FQDN, since, oam.BasicDNSRelation, 2); len(assets) > 0 {
 		for _, a := range assets {
 			alias = append(alias, &relSubs{rtype: "dns_record", alias: fqdn, target: a})
 		}
 	}
 	// Check for MX records within the since period
-	if assets := d.plugin.lookupWithinTTL(e.Session, n, oam.FQDN, since, oam.PrefDNSRelation, 15); len(assets) > 0 {
+	if assets := d.plugin.lookupWithinTTL(e.Session, fqdn, oam.FQDN, since, oam.PrefDNSRelation, 15); len(assets) > 0 {
 		for _, a := range assets {
 			alias = append(alias, &relSubs{rtype: "dns_record", alias: fqdn, target: a})
 		}

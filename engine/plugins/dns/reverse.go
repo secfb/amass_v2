@@ -103,12 +103,11 @@ func (d *dnsReverse) check(e *et.Event) error {
 func (d *dnsReverse) lookup(e *et.Event, fqdn *dbt.Entity, since time.Time) []*relRev {
 	var rev []*relRev
 
-	n, ok := fqdn.Asset.(*oamdns.FQDN)
-	if !ok || n == nil {
+	if _, ok := fqdn.Asset.(*oamdns.FQDN); !ok {
 		return rev
 	}
 
-	if assets := d.plugin.lookupWithinTTL(e.Session, n.Name, oam.FQDN, since, oam.BasicDNSRelation, 12); len(assets) > 0 {
+	if assets := d.plugin.lookupWithinTTL(e.Session, fqdn, oam.FQDN, since, oam.BasicDNSRelation, 12); len(assets) > 0 {
 		for _, a := range assets {
 			rev = append(rev, &relRev{ipFQDN: fqdn, target: a})
 		}
