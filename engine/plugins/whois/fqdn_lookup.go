@@ -21,6 +21,7 @@ import (
 	oamdns "github.com/owasp-amass/open-asset-model/dns"
 	"github.com/owasp-amass/open-asset-model/general"
 	oamreg "github.com/owasp-amass/open-asset-model/registration"
+	"golang.org/x/net/publicsuffix"
 )
 
 type fqdnLookup struct {
@@ -38,7 +39,8 @@ func (r *fqdnLookup) check(e *et.Event) error {
 		return errors.New("failed to extract the FQDN asset")
 	}
 
-	if !support.IsRegisteredDomain(e.Session, e.Entity) {
+	name := strings.ToLower(fqdn.Name)
+	if dom, err := publicsuffix.EffectiveTLDPlusOne(name); err != nil || dom != name {
 		return nil
 	}
 
