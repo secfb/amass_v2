@@ -10,60 +10,109 @@ import (
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
+	"github.com/caffix/stringset"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
 func (s *Scope) AddOrganization(o *oamorg.Organization) bool {
-	key := strings.ToLower(o.Name)
-	if s.isBadField(key) {
+	var names []string
+
+	for _, n := range []string{o.Name, o.LegalName} {
+		name := strings.ToLower(n)
+
+		if name == "" {
+			continue
+		}
+		if !s.isBadField(name) {
+			names = append(names, name)
+		}
+	}
+
+	if len(names) == 0 {
 		return false
 	}
 
 	s.orgLock.Lock()
 	defer s.orgLock.Unlock()
 
-	if _, found := s.orgs[key]; !found {
-		s.orgs[key] = o
-		return true
+	var added bool
+	for _, name := range names {
+		if _, found := s.orgs[name]; !found {
+			s.orgs[name] = o
+			added = true
+		}
 	}
-	return false
+	return added
 }
 
 func (s *Scope) AddOrgByName(o string) bool {
-	return s.AddOrganization(&oamorg.Organization{Name: o})
+	return s.AddOrganization(&oamorg.Organization{ID: o, Name: o})
 }
 
 func (s *Scope) Organizations() []*oamorg.Organization {
+	set := stringset.New()
+	defer set.Close()
+
 	s.orgLock.Lock()
 	defer s.orgLock.Unlock()
 
 	var results []*oamorg.Organization
 	for _, v := range s.orgs {
-		if o, ok := v.(*oamorg.Organization); ok {
-			results = append(results, o)
+		if o, valid := v.(*oamorg.Organization); valid {
+			if !set.Has(o.ID) {
+				set.Insert(o.ID)
+				results = append(results, o)
+			}
 		}
 	}
 	return results
 }
 
 func (s *Scope) matchesOrg(o *oamorg.Organization, conf int) (oam.Asset, int) {
-	for _, v := range s.Organizations() {
-		if strings.EqualFold(o.Name, v.Name) {
-			return v, 100
-		}
+	var names []string
 
-		swg := metrics.NewSmithWatermanGotoh()
-		swg.CaseSensitive = false
-		swg.GapPenalty = -0.1
-		swg.Substitution = metrics.MatchMismatch{
-			Match:    1,
-			Mismatch: -0.5,
-		}
+	for _, n := range []string{o.Name, o.LegalName} {
+		name := strings.ToLower(n)
 
-		if sim := strutil.Similarity(o.Name, v.Name, swg); sim >= float64(conf) {
-			return v, int(math.Round(sim))
+		if name == "" {
+			continue
+		}
+		if !s.isBadField(name) {
+			names = append(names, name)
 		}
 	}
-	return nil, 0
+
+	if len(names) == 0 {
+		return nil, 0
+	}
+
+	s.orgLock.Lock()
+	defer s.orgLock.Unlock()
+
+	var best float64
+	var result oam.Asset
+	fconf := float64(conf)
+	for n, val := range s.orgs {
+		for _, name := range names {
+			if strings.EqualFold(name, n) {
+				return val, 100
+			}
+
+			swg := metrics.NewSmithWatermanGotoh()
+			swg.CaseSensitive = false
+			swg.GapPenalty = -0.1
+			swg.Substitution = metrics.MatchMismatch{
+				Match:    1,
+				Mismatch: -0.5,
+			}
+
+			if sim := strutil.Similarity(name, n, swg); sim >= fconf && sim > best {
+				best = sim
+				result = val
+			}
+		}
+	}
+
+	return result, int(math.Round(best))
 }
