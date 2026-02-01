@@ -14,6 +14,7 @@ import (
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
+	oamcon "github.com/owasp-amass/open-asset-model/contact"
 	oamgen "github.com/owasp-amass/open-asset-model/general"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
@@ -231,7 +232,7 @@ func (h *horizPlugin) getContactRecordLocations(e *et.Event, cr *dbt.Entity) ([]
 			continue
 		}
 
-		if _, valid := to.Asset.(*oamorg.Organization); valid {
+		if _, valid := to.Asset.(*oamcon.Location); valid {
 			results = append(results, to)
 		}
 	}
@@ -264,7 +265,7 @@ func (h *horizPlugin) getOrganizationLocations(e *et.Event, o *dbt.Entity) ([]*d
 			continue
 		}
 
-		if _, valid := to.Asset.(*oamorg.Organization); valid {
+		if _, valid := to.Asset.(*oamcon.Location); valid {
 			results = append(results, to)
 		}
 	}
