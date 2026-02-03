@@ -79,7 +79,7 @@ func (h *horOrg) processInScope(e *et.Event) {
 			}
 		}
 		// if the contact record belongs to a registration record or TLS certificate, add to the scope
-		if edges, err := e.Session.DB().IncomingEdges(ctx, e.Entity, since); err == nil {
+		if edges, err := e.Session.DB().IncomingEdges(ctx, from, since); err == nil {
 			for _, edge := range edges {
 				if from, err := e.Session.DB().FindEntityById(ctx, edge.FromEntity.ID); err == nil {
 					switch v := from.Asset.(type) {

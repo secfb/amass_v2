@@ -59,9 +59,6 @@ func (h *horTlsCert) lookup(sess et.Session, tlsent *dbt.Entity) ([]*dbt.Entity,
 func (h *horTlsCert) process(e *et.Event, c *oamcert.TLSCertificate, orgs []*dbt.Entity) {
 	// check if the TLS certificate subject common name is in scope
 	if _, conf := e.Session.Scope().IsAssetInScope(&oamdns.FQDN{Name: c.SubjectCommonName}, 0); conf > 0 {
-		for _, o := range orgs {
-			h.plugin.enqueueIfOutOfScope(e.Session, o)
-		}
 		return
 	}
 
