@@ -442,7 +442,6 @@ func (h *horizPlugin) addToScopeAndEnqueue(sess et.Session, ent *dbt.Entity) {
 	if sess.Scope().Add(ent.Asset) {
 		if econf := h.confidence(sess, ent.Asset.AssetType()); econf > 0 {
 			if a, conf := sess.Scope().IsAssetInScope(ent.Asset, econf); conf >= econf {
-				// TODO: improve this by obtaining the database entity for the returned asset
 				if strings.EqualFold(a.Key(), ent.Asset.Key()) {
 					_ = sess.Backlog().Enqueue(ent)
 				}

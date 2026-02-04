@@ -115,11 +115,11 @@ func (r *fqdnLookup) store(e *et.Event, resp string, fent *dbt.Entity, src *et.S
 	dr := &oamreg.DomainRecord{
 		Raw:            resp,
 		ID:             info.Domain.ID,
-		Domain:         info.Domain.Domain,
+		Domain:         strings.ToLower(info.Domain.Domain),
 		Punycode:       info.Domain.Punycode,
 		Name:           info.Domain.Name,
 		Extension:      info.Domain.Extension,
-		WhoisServer:    info.Domain.WhoisServer,
+		WhoisServer:    strings.ToLower(info.Domain.WhoisServer),
 		CreatedDate:    info.Domain.CreatedDate,
 		UpdatedDate:    info.Domain.UpdatedDate,
 		ExpirationDate: info.Domain.ExpirationDate,

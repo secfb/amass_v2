@@ -5,7 +5,10 @@
 package horizontals
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
@@ -120,6 +123,56 @@ func (h *horRegRec) processDomainRecord(e *et.Event, orgs []*dbt.Entity, locs []
 		}
 		return
 	}
+
+	var found bool
+	for _, o := range orgs {
+		if h.plugin.isEntityInScope(e.Session, o) {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		for _, loc := range locs {
+			if h.plugin.isEntityInScope(e.Session, loc) {
+				found = true
+				break
+			}
+		}
+	}
+
+	if found {
+		// get the registered domain FQDN entity
+		if fqdn, err := h.getRegisteredDomainEntity(e.Session, e.Entity); err == nil && fqdn != nil {
+			// add the FQDN to the session scope and review it
+			h.plugin.addToScopeAndEnqueue(e.Session, e.Entity)
+		}
+
+		for _, o := range orgs {
+			h.plugin.enqueueIfOutOfScope(e.Session, o)
+		}
+		for _, loc := range locs {
+			h.plugin.enqueueIfOutOfScope(e.Session, loc)
+		}
+	}
+}
+
+func (h *horRegRec) getRegisteredDomainEntity(sess et.Session, record *dbt.Entity) (*dbt.Entity, error) {
+	dr, valid := record.Asset.(*oamreg.DomainRecord)
+	if !valid {
+		return nil, errors.New("failed to cast the DomainRecord")
+	}
+
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
+	defer cancel()
+
+	if ents, err := sess.DB().FindEntitiesByContent(ctx, oam.FQDN, time.Time{}, 1, dbt.ContentFilters{
+		"name": dr.Domain,
+	}); err == nil && len(ents) == 1 {
+		return ents[0], nil
+	}
+
+	return nil, fmt.Errorf("failed to obtain the registered domain name FQDN for: %s", dr.Domain)
 }
 
 func (h *horRegRec) processIPNetRecord(e *et.Event, orgs []*dbt.Entity, locs []*dbt.Entity) {

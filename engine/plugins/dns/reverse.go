@@ -239,7 +239,7 @@ func (d *dnsReverse) process(e *et.Event, rev []*relRev) {
 			Session: e.Session,
 		})
 
-		e.Session.Log().Info("relationship discovered", "from", ip.Name, "relation", "ptr_record",
+		e.Session.Log().Info("relationship discovered", "from", ip.Name, "relation", "dns_record",
 			"to", target.Name, slog.Group("plugin", "name", d.plugin.name, "handler", d.name))
 	}
 }
