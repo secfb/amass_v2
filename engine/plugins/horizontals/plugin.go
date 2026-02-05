@@ -405,7 +405,7 @@ func (h *horizPlugin) addASNetblocksToScope(sess et.Session, asn int) *dbt.Entit
 
 	if edges, err := sess.DB().OutgoingEdges(ctx, as, since, "announces"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
-			if to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil {
+			if to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && to != nil {
 				// add the announced netblock to the scope
 				h.enqueueIfOutOfScope(sess, to)
 			}
