@@ -7,6 +7,7 @@ package horizontals
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	oamgen "github.com/owasp-amass/open-asset-model/general"
 	oamnet "github.com/owasp-amass/open-asset-model/network"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
+	oamreg "github.com/owasp-amass/open-asset-model/registration"
 )
 
 type horizPlugin struct {
@@ -456,4 +458,40 @@ func (h *horizPlugin) enqueueIfOutOfScope(sess et.Session, ent *dbt.Entity) {
 	if !h.isEntityInScope(sess, ent) {
 		h.addToScopeAndEnqueue(sess, ent)
 	}
+}
+
+func (h *horizPlugin) getRegisteredDomainEntity(sess et.Session, record *dbt.Entity) (*dbt.Entity, error) {
+	dr, valid := record.Asset.(*oamreg.DomainRecord)
+	if !valid {
+		return nil, errors.New("failed to cast the DomainRecord")
+	}
+
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
+	defer cancel()
+
+	if ents, err := sess.DB().FindEntitiesByContent(ctx, oam.FQDN, time.Time{}, 1, dbt.ContentFilters{
+		"name": dr.Domain,
+	}); err == nil && len(ents) == 1 {
+		return ents[0], nil
+	}
+
+	return nil, fmt.Errorf("failed to obtain the registered domain name FQDN for: %s", dr.Domain)
+}
+
+func (h *horizPlugin) getRegisteredNetblockEntity(sess et.Session, record *dbt.Entity) (*dbt.Entity, error) {
+	iprec, valid := record.Asset.(*oamreg.IPNetRecord)
+	if !valid {
+		return nil, errors.New("failed to cast the IPNetRecord")
+	}
+
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
+	defer cancel()
+
+	if ents, err := sess.DB().FindEntitiesByContent(ctx, oam.Netblock, time.Time{}, 1, dbt.ContentFilters{
+		"cidr": iprec.CIDR.String(),
+	}); err == nil && len(ents) == 1 {
+		return ents[0], nil
+	}
+
+	return nil, fmt.Errorf("failed to obtain the registered CIDR Netblock for: %s", iprec.CIDR.String())
 }

@@ -86,13 +86,18 @@ func (h *horLocation) processInScope(e *et.Event) {
 					switch v := from.Asset.(type) {
 					case *oamreg.AutnumRecord:
 						if !h.plugin.isEntityInScope(e.Session, from) {
-							h.plugin.addASNetblocksToScope(e.Session, v.Number)
-							h.plugin.addToScopeAndEnqueue(e.Session, from)
+							if as := h.plugin.addASNetblocksToScope(e.Session, v.Number); as != nil {
+								h.plugin.addToScopeAndEnqueue(e.Session, as)
+							}
 						}
 					case *oamreg.DomainRecord:
-						h.plugin.enqueueIfOutOfScope(e.Session, from)
+						if fqdn, err := h.plugin.getRegisteredDomainEntity(e.Session, from); err == nil && fqdn != nil {
+							h.plugin.enqueueIfOutOfScope(e.Session, fqdn)
+						}
 					case *oamreg.IPNetRecord:
-						h.plugin.enqueueIfOutOfScope(e.Session, from)
+						if nb, err := h.plugin.getRegisteredNetblockEntity(e.Session, from); err == nil && nb != nil {
+							h.plugin.enqueueIfOutOfScope(e.Session, nb)
+						}
 					case *oamcert.TLSCertificate:
 						h.plugin.enqueueIfOutOfScope(e.Session, from)
 					}
