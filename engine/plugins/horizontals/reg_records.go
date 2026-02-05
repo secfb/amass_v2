@@ -99,8 +99,9 @@ func (h *horRegRec) processAutnumRecord(e *et.Event, orgs []*dbt.Entity, locs []
 		// the autonomous system should be added to the scope
 		if an, valid := e.Entity.Asset.(*oamreg.AutnumRecord); valid {
 			if !h.plugin.isEntityInScope(e.Session, e.Entity) {
-				h.plugin.addASNetblocksToScope(e.Session, an.Number)
-				h.plugin.addToScopeAndEnqueue(e.Session, e.Entity)
+				if as := h.plugin.addASNetblocksToScope(e.Session, an.Number); as != nil {
+					h.plugin.addToScopeAndEnqueue(e.Session, as)
+				}
 			}
 		}
 		for _, o := range orgs {
@@ -145,9 +146,8 @@ func (h *horRegRec) processDomainRecord(e *et.Event, orgs []*dbt.Entity, locs []
 		// get the registered domain FQDN entity
 		if fqdn, err := h.getRegisteredDomainEntity(e.Session, e.Entity); err == nil && fqdn != nil {
 			// add the FQDN to the session scope and review it
-			h.plugin.addToScopeAndEnqueue(e.Session, e.Entity)
+			h.plugin.enqueueIfOutOfScope(e.Session, e.Entity)
 		}
-
 		for _, o := range orgs {
 			h.plugin.enqueueIfOutOfScope(e.Session, o)
 		}
@@ -205,9 +205,11 @@ func (h *horRegRec) processIPNetRecord(e *et.Event, orgs []*dbt.Entity, locs []*
 	}
 
 	if found {
-		// the netblock should be added to the scope
-		h.plugin.addToScopeAndEnqueue(e.Session, e.Entity)
-
+		// get the registered CIDR Netblock entity
+		if nb, err := h.getRegisteredNetblockEntity(e.Session, e.Entity); err == nil && nb != nil {
+			// the netblock should be added to the scope
+			h.plugin.enqueueIfOutOfScope(e.Session, nb)
+		}
 		for _, o := range orgs {
 			h.plugin.enqueueIfOutOfScope(e.Session, o)
 		}
@@ -215,4 +217,22 @@ func (h *horRegRec) processIPNetRecord(e *et.Event, orgs []*dbt.Entity, locs []*
 			h.plugin.enqueueIfOutOfScope(e.Session, loc)
 		}
 	}
+}
+
+func (h *horRegRec) getRegisteredNetblockEntity(sess et.Session, record *dbt.Entity) (*dbt.Entity, error) {
+	iprec, valid := record.Asset.(*oamreg.IPNetRecord)
+	if !valid {
+		return nil, errors.New("failed to cast the IPNetRecord")
+	}
+
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
+	defer cancel()
+
+	if ents, err := sess.DB().FindEntitiesByContent(ctx, oam.Netblock, time.Time{}, 1, dbt.ContentFilters{
+		"cidr": iprec.CIDR.String(),
+	}); err == nil && len(ents) == 1 {
+		return ents[0], nil
+	}
+
+	return nil, fmt.Errorf("failed to obtain the registered CIDR Netblock for: %s", iprec.CIDR.String())
 }

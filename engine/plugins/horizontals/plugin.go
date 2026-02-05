@@ -60,7 +60,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horfqdn.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.FQDN)},
 		EventType:    oam.FQDN,
 		Callback:     h.horfqdn.check,
@@ -77,7 +77,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horaddr.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.IPAddress)},
 		EventType:    oam.IPAddress,
 		Callback:     h.horaddr.check,
@@ -94,7 +94,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horOrg.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.Organization)},
 		EventType:    oam.Organization,
 		Callback:     h.horOrg.check,
@@ -111,7 +111,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horLocation.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.Location)},
 		EventType:    oam.Location,
 		Callback:     h.horLocation.check,
@@ -128,7 +128,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horRegRec.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.AutnumRecord)},
 		EventType:    oam.AutnumRecord,
 		Callback:     h.horRegRec.check,
@@ -140,7 +140,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horRegRec.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.DomainRecord)},
 		EventType:    oam.DomainRecord,
 		Callback:     h.horRegRec.check,
@@ -152,7 +152,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horRegRec.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.IPNetRecord)},
 		EventType:    oam.IPNetRecord,
 		Callback:     h.horRegRec.check,
@@ -169,7 +169,7 @@ func (h *horizPlugin) Start(r et.Registry) error {
 		Name:         h.horTlsCert.name,
 		Position:     10,
 		Exclusive:    true,
-		MaxInstances: support.MaxHandlerInstances,
+		MaxInstances: support.MinHandlerInstances,
 		Transforms:   []string{string(oam.TLSCertificate)},
 		EventType:    oam.TLSCertificate,
 		Callback:     h.horTlsCert.check,
@@ -382,7 +382,7 @@ func (h *horizPlugin) getOrganizationLocations(sess et.Session, o *dbt.Entity) (
 	return results, nil
 }
 
-func (h *horizPlugin) addASNetblocksToScope(sess et.Session, asn int) {
+func (h *horizPlugin) addASNetblocksToScope(sess et.Session, asn int) *dbt.Entity {
 	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
 	defer cancel()
 
@@ -393,22 +393,24 @@ func (h *horizPlugin) addASNetblocksToScope(sess et.Session, asn int) {
 		as = ents[0]
 	}
 	if as == nil {
-		return
+		return nil
 	}
 
 	since, err := support.TTLStartTime(sess.Config(), string(oam.AutonomousSystem), string(oam.Netblock), h.name)
 	if err != nil {
-		return
+		return as
 	}
 
 	if edges, err := sess.DB().OutgoingEdges(ctx, as, since, "announces"); err == nil && len(edges) > 0 {
 		for _, edge := range edges {
 			if to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil {
 				// add the announced netblock to the scope
-				_ = sess.Scope().Add(to.Asset)
+				h.enqueueIfOutOfScope(sess, to)
 			}
 		}
 	}
+
+	return as
 }
 
 func (h *horizPlugin) confidence(sess et.Session, atype oam.AssetType) int {
