@@ -188,7 +188,7 @@ func (h *horizPlugin) Stop() {
 }
 
 func (h *horizPlugin) submitIPAddress(e *et.Event, asset *oamnet.IPAddress, src *et.Source) {
-	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 30*time.Second)
 	defer cancel()
 
 	// ensure we do not work on an IP address that was processed previously
@@ -220,7 +220,7 @@ func (h *horizPlugin) getContactRecord(sess et.Session, ent *dbt.Entity, label s
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(sess.Ctx(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 10*time.Second)
 	defer cancel()
 
 	edges, err := sess.DB().OutgoingEdges(ctx, ent, since, label)
@@ -260,7 +260,6 @@ func (h *horizPlugin) lookupContactRecordOrgsAndLocations(sess et.Session, cr *d
 				if set.Has(ent.ID) {
 					continue
 				}
-
 				if _, valid := ent.Asset.(*oamcon.Location); valid {
 					set.Insert(ent.ID)
 					locents = append(locents, ent)
@@ -274,7 +273,6 @@ func (h *horizPlugin) lookupContactRecordOrgsAndLocations(sess et.Session, cr *d
 			if set.Has(ent.ID) {
 				continue
 			}
-
 			if _, valid := ent.Asset.(*oamcon.Location); valid {
 				set.Insert(ent.ID)
 				locents = append(locents, ent)
@@ -300,9 +298,13 @@ func (h *horizPlugin) getContactRecordOrganizations(sess et.Session, cr *dbt.Ent
 		return nil, errors.New("zero organizations found")
 	}
 
+	seconds := 5 * len(edges)
+	octx, cancel := context.WithTimeout(sess.Ctx(), time.Duration(seconds)*time.Second)
+	defer cancel()
+
 	var results []*dbt.Entity
 	for _, edge := range edges {
-		to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID)
+		to, err := sess.DB().FindEntityById(octx, edge.ToEntity.ID)
 		if err != nil {
 			continue
 		}
@@ -333,9 +335,13 @@ func (h *horizPlugin) getContactRecordLocations(sess et.Session, cr *dbt.Entity)
 		return nil, errors.New("zero locations found")
 	}
 
+	seconds := 5 * len(edges)
+	lctx, cancel := context.WithTimeout(sess.Ctx(), time.Duration(seconds)*time.Second)
+	defer cancel()
+
 	var results []*dbt.Entity
 	for _, edge := range edges {
-		to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID)
+		to, err := sess.DB().FindEntityById(lctx, edge.ToEntity.ID)
 		if err != nil {
 			continue
 		}
@@ -366,9 +372,13 @@ func (h *horizPlugin) getOrganizationLocations(sess et.Session, o *dbt.Entity) (
 		return nil, errors.New("zero locations found")
 	}
 
+	seconds := 5 * len(edges)
+	lctx, cancel := context.WithTimeout(sess.Ctx(), time.Duration(seconds)*time.Second)
+	defer cancel()
+
 	var results []*dbt.Entity
 	for _, edge := range edges {
-		to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID)
+		to, err := sess.DB().FindEntityById(lctx, edge.ToEntity.ID)
 		if err != nil {
 			continue
 		}
@@ -385,7 +395,7 @@ func (h *horizPlugin) getOrganizationLocations(sess et.Session, o *dbt.Entity) (
 }
 
 func (h *horizPlugin) addASNetblocksToScope(sess et.Session, asn int) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 10*time.Second)
 	defer cancel()
 
 	var as *dbt.Entity
@@ -404,6 +414,11 @@ func (h *horizPlugin) addASNetblocksToScope(sess et.Session, asn int) *dbt.Entit
 	}
 
 	if edges, err := sess.DB().OutgoingEdges(ctx, as, since, "announces"); err == nil && len(edges) > 0 {
+		seconds := 5 * len(edges)
+
+		ctx, cancel := context.WithTimeout(sess.Ctx(), time.Duration(seconds)*time.Second)
+		defer cancel()
+
 		for _, edge := range edges {
 			if to, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && to != nil {
 				// add the announced netblock to the scope

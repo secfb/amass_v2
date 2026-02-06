@@ -96,11 +96,11 @@ func (h *horTlsCert) registeredFQDN(sess et.Session, c *oamcert.TLSCertificate) 
 
 	// follow the node relations back to the registered domain name
 	for {
-		if apex := h.getZoneApexFQDN(sess, domain); apex != nil {
-			domain = apex
-		} else {
+		apex := h.getZoneApexFQDN(sess, domain)
+		if apex == nil || apex.ID == domain.ID {
 			break
 		}
+		domain = apex
 	}
 
 	return domain

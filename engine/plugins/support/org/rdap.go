@@ -16,14 +16,14 @@ import (
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
-func CreateOrgLEICode(sess et.Session, orgent *dbt.Entity, lei string, src *et.Source) (*dbt.Entity, error) {
+func CreateOrgRDAPHandle(sess et.Session, orgent *dbt.Entity, handle string, src *et.Source) (*dbt.Entity, error) {
 	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
 	defer cancel()
 
 	id := &oamgen.Identifier{
-		UniqueID: fmt.Sprintf("%s:%s", oamgen.LEICode, lei),
-		ID:       lei,
-		Type:     oamgen.LEICode,
+		UniqueID: fmt.Sprintf("%s:%s", oamgen.ARINHandle, handle),
+		ID:       handle,
+		Type:     oamgen.ARINHandle,
 	}
 
 	ident, err := sess.DB().CreateAsset(ctx, id)
@@ -46,16 +46,16 @@ func CreateOrgLEICode(sess et.Session, orgent *dbt.Entity, lei string, src *et.S
 	return ident, nil
 }
 
-func FindOrgByLEICode(sess et.Session, lei string, src *et.Source) (*dbt.Entity, error) {
+func FindOrgByRDAPHandle(sess et.Session, handle string, src *et.Source) (*dbt.Entity, error) {
 	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
 	defer cancel()
 
 	ids, err := sess.DB().FindEntitiesByContent(ctx, oam.Identifier, time.Time{}, 1, dbt.ContentFilters{
-		"id":      lei,
-		"id_type": oamgen.LEICode,
+		"id":      handle,
+		"id_type": oamgen.ARINHandle,
 	})
 	if err != nil || len(ids) != 1 {
-		return nil, fmt.Errorf("failed to obtain the entity for Identifier - %s:%s", oamgen.LEICode, lei)
+		return nil, fmt.Errorf("failed to obtain the entity for Identifier - %s:%s", oamgen.ARINHandle, handle)
 	}
 	ident := ids[0]
 
@@ -72,5 +72,5 @@ func FindOrgByLEICode(sess et.Session, lei string, src *et.Source) (*dbt.Entity,
 		}
 	}
 
-	return nil, fmt.Errorf("failed to obtain the Organization associated with Identifier - %s:%s", oamgen.LEICode, lei)
+	return nil, fmt.Errorf("failed to obtain the Organization associated with Identifier - %s:%s", oamgen.ARINHandle, handle)
 }

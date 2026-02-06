@@ -19,6 +19,11 @@ import (
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
+type relatedOrgs struct {
+	name   string
+	plugin *gleif
+}
+
 func (ro *relatedOrgs) check(e *et.Event) error {
 	ident, ok := e.Entity.Asset.(*general.Identifier)
 	if !ok {
@@ -111,12 +116,12 @@ func (ro *relatedOrgs) lookup(e *et.Event, ident *dbt.Entity, since time.Time) [
 
 func (ro *relatedOrgs) query(e *et.Event, ident *dbt.Entity) []*dbt.Entity {
 	id := ident.Asset.(*general.Identifier)
-	parent, _ := org.GLEIFGetDirectParentRecord(e.Session.Ctx(), id.ID)
-	children, _ := org.GLEIFGetDirectChildrenRecords(e.Session.Ctx(), id.ID)
+	parent, _ := GLEIFGetDirectParentRecord(e.Session.Ctx(), id.ID)
+	children, _ := GLEIFGetDirectChildrenRecords(e.Session.Ctx(), id.ID)
 	return ro.store(e, ident, parent, children)
 }
 
-func (ro *relatedOrgs) store(e *et.Event, ident *dbt.Entity, parent *org.LEIRecord, children []*org.LEIRecord) []*dbt.Entity {
+func (ro *relatedOrgs) store(e *et.Event, ident *dbt.Entity, parent *LEIRecord, children []*LEIRecord) []*dbt.Entity {
 	var orgs []*dbt.Entity
 
 	orgent := ro.plugin.leiToOrgEntity(e, ident)

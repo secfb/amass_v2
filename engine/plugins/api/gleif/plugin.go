@@ -7,6 +7,7 @@ package gleif
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
@@ -14,6 +15,14 @@ import (
 	oam "github.com/owasp-amass/open-asset-model"
 	"github.com/owasp-amass/open-asset-model/general"
 )
+
+type gleif struct {
+	name    string
+	log     *slog.Logger
+	fuzzy   *fuzzyCompletions
+	related *relatedOrgs
+	source  *et.Source
+}
 
 func NewGLEIF() et.Plugin {
 	return &gleif{

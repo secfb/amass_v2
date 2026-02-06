@@ -23,6 +23,11 @@ import (
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
+type fuzzyCompletions struct {
+	name   string
+	plugin *gleif
+}
+
 func (fc *fuzzyCompletions) check(e *et.Event) error {
 	_, ok := e.Entity.Asset.(*oamorg.Organization)
 	if !ok {
@@ -70,12 +75,12 @@ func (fc *fuzzyCompletions) lookup(e *et.Event, orgent *dbt.Entity, since time.T
 
 func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 	var conf int
-	var rec *org.LEIRecord
+	var rec *LEIRecord
 
 	if leient := fc.plugin.orgEntityToLEI(e, orgent); leient != nil {
 		lei := leient.Asset.(*general.Identifier)
 
-		if r, err := org.GLEIFGetLEIRecord(e.Session.Ctx(), lei.ID); err == nil {
+		if r, err := GLEIFGetLEIRecord(e.Session.Ctx(), lei.ID); err == nil {
 			rec = r
 			conf = 100
 		}
@@ -85,7 +90,7 @@ func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 		o := orgent.Asset.(*oamorg.Organization)
 		brand := org.ExtractBrandName(o.Name)
 
-		result, err := org.GLEIFSearchFuzzyCompletions(e.Session.Ctx(), brand)
+		result, err := GLEIFSearchFuzzyCompletions(e.Session.Ctx(), brand)
 		if err != nil {
 			e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", fc.plugin.name, "handler", fc.name))
 			return nil
@@ -108,8 +113,8 @@ func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 	return fc.store(e, orgent, rec, conf)
 }
 
-func filterFuzzyCompletions(e *et.Event, orgent *dbt.Entity, brand string, m map[string]string) *org.LEIRecord {
-	var rec *org.LEIRecord
+func filterFuzzyCompletions(e *et.Event, orgent *dbt.Entity, brand string, m map[string]string) *LEIRecord {
+	var rec *LEIRecord
 	o := orgent.Asset.(*oamorg.Organization)
 
 	var names []string
@@ -131,8 +136,8 @@ func filterFuzzyCompletions(e *et.Event, orgent *dbt.Entity, brand string, m map
 			}
 
 			lei := m[match]
-			if r, err := org.GLEIFGetLEIRecord(e.Session.Ctx(), lei); err == nil {
-				if org.LocMatch(e, orgent, r) {
+			if r, err := GLEIFGetLEIRecord(e.Session.Ctx(), lei); err == nil {
+				if LocMatch(e, orgent, r) {
 					score += 40
 				}
 				if score > conf {
@@ -163,8 +168,8 @@ func filterFuzzyCompletions(e *et.Event, orgent *dbt.Entity, brand string, m map
 			}
 
 			lei := m[match]
-			if r, err := org.GLEIFGetLEIRecord(e.Session.Ctx(), lei); err == nil {
-				if org.LocMatch(e, orgent, r) {
+			if r, err := GLEIFGetLEIRecord(e.Session.Ctx(), lei); err == nil {
+				if LocMatch(e, orgent, r) {
 					score += 40
 				}
 				if score > conf {
@@ -178,7 +183,7 @@ func filterFuzzyCompletions(e *et.Event, orgent *dbt.Entity, brand string, m map
 	return rec
 }
 
-func (fc *fuzzyCompletions) store(e *et.Event, orgent *dbt.Entity, rec *org.LEIRecord, conf int) *dbt.Entity {
+func (fc *fuzzyCompletions) store(e *et.Event, orgent *dbt.Entity, rec *LEIRecord, conf int) *dbt.Entity {
 	fc.plugin.updateOrgFromLEIRecord(e, orgent, rec, conf)
 
 	ident, err := fc.plugin.createLEIFromRecord(e, orgent, rec, conf)

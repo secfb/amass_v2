@@ -8,13 +8,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/adrg/strutil"
-	"github.com/adrg/strutil/metrics"
 	"github.com/google/uuid"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
@@ -25,21 +22,9 @@ import (
 
 var createOrgLock sync.Mutex
 
-func createOrgUnlock(delay bool) {
-	if !delay {
-		createOrgLock.Unlock()
-		return
-	}
-	// If a delay is requested, wait before unlocking
-	go func(d bool) {
-		time.Sleep(2 * time.Second)
-		createOrgLock.Unlock()
-	}(delay)
-}
-
 func CreateOrgAsset(session et.Session, obj *dbt.Entity, rel oam.Relation, o *oamorg.Organization, src *et.Source) (*dbt.Entity, error) {
 	createOrgLock.Lock()
-	defer createOrgUnlock(rel == nil)
+	defer createOrgLock.Unlock()
 
 	if o == nil || o.Name == "" {
 		return nil, errors.New("missing the organization name")
@@ -69,11 +54,7 @@ func CreateOrgAsset(session et.Session, obj *dbt.Entity, rel oam.Relation, o *oa
 				Confidence: src.Confidence,
 			})
 
-			dctx, dcancel := context.WithTimeout(session.Ctx(), 30*time.Minute)
-			defer dcancel()
-
-			o.ID = determineOrgID(dctx, name)
-
+			o.ID = genStableOrgID()
 			octx, ocancel := context.WithTimeout(session.Ctx(), 20*time.Second)
 			defer ocancel()
 
@@ -108,66 +89,12 @@ func CreateOrgAsset(session et.Session, obj *dbt.Entity, rel oam.Relation, o *oa
 	return orgent, nil
 }
 
-func determineOrgID(ctx context.Context, name string) string {
-	var rec *LEIRecord
-
-	if records, err := GLEIFSearchFuzzyCompletions(ctx, name); err == nil && records != nil && len(records.Data) > 0 {
-		swg := metrics.NewSmithWatermanGotoh()
-		swg.CaseSensitive = false
-		swg.GapPenalty = -0.1
-		swg.Substitution = metrics.MatchMismatch{
-			Match:    1,
-			Mismatch: -0.5,
-		}
-
-		var conf int
-		for _, data := range records.Data {
-			if data.Type != "fuzzycompletions" || data.Relationships.LEIRecords.Data.Type != "lei-records" {
-				continue
-			}
-
-			match := data.Attributes.Value
-			lei := data.Relationships.LEIRecords.Data.ID
-			if !strings.Contains(strings.ToLower(match), strings.ToLower(name)) {
-				continue
-			}
-
-			sim := strutil.Similarity(name, match, swg)
-			score := int(math.Round(sim * 30))
-
-			if len(records.Data) == 1 {
-				score += 30
-			}
-
-			if score > conf {
-				if r, err := GLEIFGetLEIRecord(ctx, lei); err == nil {
-					rec = r
-					conf = score
-				}
-			}
-		}
-	}
-
-	if rec != nil {
-		result := fmt.Sprintf("%s:%s:", rec.Attributes.Entity.LegalName.Name, rec.Attributes.Entity.Jurisdiction)
-
-		if val := rec.Attributes.Entity.RegisteredAs; val != "" {
-			result += val
-		} else if val := rec.Attributes.Entity.RegisteredAt.Other; val != "" {
-			result += val
-		} else {
-			result += rec.ID
-		}
-
-		return result
-	}
-	// If no LEI record is found, generate a UUID as the identifier.
-	// This ensures that the organization has a unique identifier even without an LEI record
+func genStableOrgID() string {
 	return uuid.New().String()
 }
 
-func createRelation(ctx context.Context, session et.Session, obj *dbt.Entity, rel oam.Relation, subject *dbt.Entity, src *et.Source) error {
-	edge, err := session.DB().CreateEdge(ctx, &dbt.Edge{
+func createRelation(ctx context.Context, sess et.Session, obj *dbt.Entity, rel oam.Relation, subject *dbt.Entity, src *et.Source) error {
+	edge, err := sess.DB().CreateEdge(ctx, &dbt.Edge{
 		Relation:   rel,
 		FromEntity: obj,
 		ToEntity:   subject,
@@ -178,7 +105,7 @@ func createRelation(ctx context.Context, session et.Session, obj *dbt.Entity, re
 		return errors.New("failed to create the edge")
 	}
 
-	_, err = session.DB().CreateEdgeProperty(ctx, edge, &general.SourceProperty{
+	_, err = sess.DB().CreateEdgeProperty(ctx, edge, &general.SourceProperty{
 		Source:     src.Name,
 		Confidence: src.Confidence,
 	})

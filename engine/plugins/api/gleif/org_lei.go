@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
-	"github.com/owasp-amass/amass/v5/engine/plugins/support/org"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
@@ -53,7 +52,7 @@ func (g *gleif) leiToOrgEntity(e *et.Event, ident *dbt.Entity) *dbt.Entity {
 	return nil
 }
 
-func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *org.LEIRecord, conf int) {
+func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *LEIRecord, conf int) {
 	o := orgent.Asset.(*oamorg.Organization)
 
 	// check if the org entity already has a LEI identifier

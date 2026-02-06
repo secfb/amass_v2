@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/owasp-amass/amass/v5/engine/plugins/support/org"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	"github.com/owasp-amass/open-asset-model/general"
@@ -41,7 +40,7 @@ func (g *gleif) createLEIIdentifier(session et.Session, orgent *dbt.Entity, lei 
 	return id, nil
 }
 
-func (g *gleif) createLEIFromRecord(e *et.Event, orgent *dbt.Entity, lei *org.LEIRecord, conf int) (*dbt.Entity, error) {
+func (g *gleif) createLEIFromRecord(e *et.Event, orgent *dbt.Entity, lei *LEIRecord, conf int) (*dbt.Entity, error) {
 	return g.createLEIIdentifier(e.Session, orgent, &general.Identifier{
 		UniqueID:       fmt.Sprintf("%s:%s", general.LEICode, lei.ID),
 		ID:             lei.ID,
@@ -53,7 +52,7 @@ func (g *gleif) createLEIFromRecord(e *et.Event, orgent *dbt.Entity, lei *org.LE
 	}, conf)
 }
 
-func (g *gleif) buildAddrFromLEIAddress(addr *org.LEIAddress) string {
+func (g *gleif) buildAddrFromLEIAddress(addr *LEIAddress) string {
 	street := strings.Join(addr.AddressLines, " ")
 
 	province := addr.Region
