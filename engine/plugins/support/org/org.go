@@ -42,12 +42,12 @@ func CreateOrgAsset(sess et.Session, obj *dbt.Entity, rel oam.Relation, o *oamor
 		orgent = dedupChecks(sess, obj, o)
 	}
 
+	dName := o.Name
 	if orgent == nil {
 		ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
 		defer cancel()
 
 		var err error
-		dName := o.Name
 		o.Name = genNormName(o)
 		o.ID = genStableOrgID(o)
 		orgent, err = sess.DB().CreateAsset(ctx, o)
@@ -59,14 +59,15 @@ func CreateOrgAsset(sess et.Session, obj *dbt.Entity, rel oam.Relation, o *oamor
 			Source:     src.Name,
 			Confidence: src.Confidence,
 		})
-		// create name claims provided by the caller
-		if ident, err := CreateOrgName(sess, orgent, dName, src); err != nil || ident == nil {
+	}
+
+	// create name claims provided by the caller
+	if ident, err := CreateOrgName(sess, orgent, dName, src); err != nil || ident == nil {
+		return nil, errors.New("failed to create the Identifier asset")
+	}
+	if o.LegalName != "" {
+		if ident, err := CreateOrgLegalName(sess, orgent, o.LegalName, src); err != nil || ident == nil {
 			return nil, errors.New("failed to create the Identifier asset")
-		}
-		if o.LegalName != "" {
-			if ident, err := CreateOrgLegalName(sess, orgent, o.LegalName, src); err != nil || ident == nil {
-				return nil, errors.New("failed to create the Identifier asset")
-			}
 		}
 	}
 

@@ -240,8 +240,11 @@ func existsAndHasAncestorInSession(sess et.Session, o *oamorg.Organization) (*db
 
 	visited := make(map[string]struct{})
 	for _, orgent := range orgents {
-		assets := []*dbt.Entity{orgent}
+		if sess.Backlog().Has(orgent) {
+			return orgent, nil
+		}
 
+		assets := []*dbt.Entity{orgent}
 		for i := 0; i < 10 && len(assets) > 0; i++ {
 			remaining := assets
 			assets = []*dbt.Entity{}

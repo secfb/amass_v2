@@ -52,9 +52,9 @@ func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *LEI
 		e.Session.Log().Error(msg, slog.Group("plugin", "name", g.name, "handler", g.name))
 	}
 
-	o.LegalName = strings.ToLower(lei.Attributes.Entity.LegalName.Name)
-	if o.LegalName != "" {
-		_ = g.addIdentifiersToOrg(e, orgent, oamgen.LegalName, []string{o.LegalName}, conf)
+	if lname := lei.Attributes.Entity.LegalName.Name; lname != "" {
+		o.LegalName = strings.ToLower(lname)
+		_ = g.addIdentifiersToOrg(e, orgent, oamgen.LegalName, []string{lname}, conf)
 	}
 
 	var otherNames []string
