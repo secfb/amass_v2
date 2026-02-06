@@ -16,7 +16,7 @@ import (
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
-	"github.com/owasp-amass/open-asset-model/general"
+	oamgen "github.com/owasp-amass/open-asset-model/general"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
@@ -27,23 +27,7 @@ func (g *gleif) orgEntityToLEI(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 	if edges, err := e.Session.DB().OutgoingEdges(ctx, orgent, time.Time{}, "id"); err == nil {
 		for _, edge := range edges {
 			if a, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && a != nil {
-				if id, ok := a.Asset.(*general.Identifier); ok && id.Type == general.LEICode {
-					return a
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func (g *gleif) leiToOrgEntity(e *et.Event, ident *dbt.Entity) *dbt.Entity {
-	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 30*time.Second)
-	defer cancel()
-
-	if edges, err := e.Session.DB().IncomingEdges(ctx, ident, time.Time{}, "id"); err == nil {
-		for _, edge := range edges {
-			if a, err := e.Session.DB().FindEntityById(ctx, edge.FromEntity.ID); err == nil && a != nil {
-				if _, ok := a.Asset.(*oamorg.Organization); ok {
+				if id, ok := a.Asset.(*oamgen.Identifier); ok && id.Type == oamgen.LEICode {
 					return a
 				}
 			}
@@ -58,7 +42,7 @@ func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *LEI
 	// check if the org entity already has a LEI identifier
 	if leient := g.orgEntityToLEI(e, orgent); leient != nil {
 		// check if the LEI identifier is the same as the one we are processing
-		if id, ok := leient.Asset.(*general.Identifier); ok && id.ID != lei.ID {
+		if id, ok := leient.Asset.(*oamgen.Identifier); ok && id.ID != lei.ID {
 			return
 		}
 	}
@@ -70,7 +54,7 @@ func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *LEI
 
 	o.LegalName = strings.ToLower(lei.Attributes.Entity.LegalName.Name)
 	if o.LegalName != "" {
-		_ = g.addIdentifiersToOrg(e, orgent, general.LegalName, []string{o.LegalName}, conf)
+		_ = g.addIdentifiersToOrg(e, orgent, oamgen.LegalName, []string{o.LegalName}, conf)
 	}
 
 	var otherNames []string
@@ -80,7 +64,7 @@ func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *LEI
 	for _, other := range lei.Attributes.Entity.TransliteratedOtherNames {
 		otherNames = append(otherNames, strings.ToLower(other.Name))
 	}
-	_ = g.addIdentifiersToOrg(e, orgent, general.OrganizationName, otherNames, conf)
+	_ = g.addIdentifiersToOrg(e, orgent, oamgen.OrganizationName, otherNames, conf)
 
 	o.FoundingDate = lei.Attributes.Entity.CreationDate
 	o.Jurisdiction = lei.Attributes.Entity.Jurisdiction
@@ -92,20 +76,20 @@ func (g *gleif) updateOrgFromLEIRecord(e *et.Event, orgent *dbt.Entity, lei *LEI
 	}
 
 	addr := g.buildAddrFromLEIAddress(&lei.Attributes.Entity.LegalAddress)
-	_ = g.addAddress(e, orgent, general.SimpleRelation{Name: "legal_address"}, addr, conf)
+	_ = g.addAddress(e, orgent, oamgen.SimpleRelation{Name: "legal_address"}, addr, conf)
 
 	addr = g.buildAddrFromLEIAddress(&lei.Attributes.Entity.HeadquartersAddress)
-	_ = g.addAddress(e, orgent, general.SimpleRelation{Name: "hq_address"}, addr, conf)
+	_ = g.addAddress(e, orgent, oamgen.SimpleRelation{Name: "hq_address"}, addr, conf)
 
 	for _, a := range lei.Attributes.Entity.OtherAddresses {
 		addr = g.buildAddrFromLEIAddress(&a)
-		_ = g.addAddress(e, orgent, general.SimpleRelation{Name: "location"}, addr, conf)
+		_ = g.addAddress(e, orgent, oamgen.SimpleRelation{Name: "location"}, addr, conf)
 	}
 
-	_ = g.addIdentifiersToOrg(e, orgent, general.BankIDCode, lei.Attributes.BIC, conf)
-	_ = g.addIdentifiersToOrg(e, orgent, general.MarketIDCode, lei.Attributes.MIC, conf)
-	_ = g.addIdentifiersToOrg(e, orgent, general.OpenCorpID, []string{lei.Attributes.OCID}, conf)
-	_ = g.addIdentifiersToOrg(e, orgent, general.SPGlobalCompanyID, lei.Attributes.SPGlobal, conf)
+	_ = g.addIdentifiersToOrg(e, orgent, oamgen.BankIDCode, lei.Attributes.BIC, conf)
+	_ = g.addIdentifiersToOrg(e, orgent, oamgen.MarketIDCode, lei.Attributes.MIC, conf)
+	_ = g.addIdentifiersToOrg(e, orgent, oamgen.OpenCorpID, []string{lei.Attributes.OCID}, conf)
+	_ = g.addIdentifiersToOrg(e, orgent, oamgen.SPGlobalCompanyID, lei.Attributes.SPGlobal, conf)
 
 	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 10*time.Second)
 	defer cancel()
@@ -132,7 +116,7 @@ func (g *gleif) addAddress(e *et.Event, orgent *dbt.Entity, rel oam.Relation, ad
 		return err
 	}
 
-	_, _ = e.Session.DB().CreateEntityProperty(ctx, a, &general.SourceProperty{
+	_, _ = e.Session.DB().CreateEntityProperty(ctx, a, &oamgen.SourceProperty{
 		Source:     g.source.Name,
 		Confidence: conf,
 	})
@@ -154,7 +138,7 @@ func (g *gleif) addIdentifiersToOrg(e *et.Event, orgent *dbt.Entity, idtype stri
 			continue
 		}
 
-		oamid := &general.Identifier{
+		oamid := &oamgen.Identifier{
 			UniqueID: fmt.Sprintf("%s:%s", idtype, id),
 			ID:       id,
 			Type:     idtype,
@@ -165,12 +149,12 @@ func (g *gleif) addIdentifiersToOrg(e *et.Event, orgent *dbt.Entity, idtype stri
 			return err
 		}
 
-		_, _ = e.Session.DB().CreateEntityProperty(ctx, ident, &general.SourceProperty{
+		_, _ = e.Session.DB().CreateEntityProperty(ctx, ident, &oamgen.SourceProperty{
 			Source:     g.source.Name,
 			Confidence: conf,
 		})
 
-		if err := g.createRelation(ctx, e.Session, orgent, general.SimpleRelation{Name: "id"}, ident, conf); err != nil {
+		if err := g.createRelation(ctx, e.Session, orgent, oamgen.SimpleRelation{Name: "id"}, ident, conf); err != nil {
 			return err
 		}
 	}

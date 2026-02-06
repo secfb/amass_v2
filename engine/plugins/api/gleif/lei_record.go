@@ -17,27 +17,23 @@ import (
 )
 
 func (g *gleif) createLEIIdentifier(session et.Session, orgent *dbt.Entity, lei *general.Identifier, conf int) (*dbt.Entity, error) {
-	ctx, cancel := context.WithTimeout(session.Ctx(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(session.Ctx(), 30*time.Second)
 	defer cancel()
 
-	id, err := session.DB().CreateAsset(ctx, lei)
-	if err != nil {
-		return nil, err
-	} else if id == nil {
-		return nil, errors.New("failed to create the Identifier asset")
-	}
-
-	_, _ = session.DB().CreateEntityProperty(ctx, id, &general.SourceProperty{
-		Source:     g.source.Name,
-		Confidence: conf,
-	})
-
-	if orgent != nil {
-		if err := g.createRelation(ctx, session, orgent, general.SimpleRelation{Name: "id"}, id, conf); err != nil {
-			return nil, err
+	if id, err := session.DB().CreateAsset(ctx, lei); err == nil && id != nil {
+		_, _ = session.DB().CreateEntityProperty(ctx, id, &general.SourceProperty{
+			Source:     g.source.Name,
+			Confidence: conf,
+		})
+		if orgent != nil {
+			if err := g.createRelation(ctx, session, orgent, general.SimpleRelation{Name: "id"}, id, conf); err != nil {
+				return nil, err
+			}
 		}
+		return id, nil
 	}
-	return id, nil
+
+	return nil, errors.New("failed to create the Identifier asset")
 }
 
 func (g *gleif) createLEIFromRecord(e *et.Event, orgent *dbt.Entity, lei *LEIRecord, conf int) (*dbt.Entity, error) {

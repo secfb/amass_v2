@@ -15,7 +15,7 @@ import (
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
-	"github.com/owasp-amass/open-asset-model/general"
+	oamgen "github.com/owasp-amass/open-asset-model/general"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
@@ -25,10 +25,10 @@ type relatedOrgs struct {
 }
 
 func (ro *relatedOrgs) check(e *et.Event) error {
-	ident, ok := e.Entity.Asset.(*general.Identifier)
+	ident, ok := e.Entity.Asset.(*oamgen.Identifier)
 	if !ok {
 		return errors.New("failed to cast the Identifier asset")
-	} else if ident.Type != general.LEICode {
+	} else if ident.Type != oamgen.LEICode {
 		return nil
 	}
 
@@ -115,7 +115,7 @@ func (ro *relatedOrgs) lookup(e *et.Event, ident *dbt.Entity, since time.Time) [
 }
 
 func (ro *relatedOrgs) query(e *et.Event, ident *dbt.Entity) []*dbt.Entity {
-	id := ident.Asset.(*general.Identifier)
+	id := ident.Asset.(*oamgen.Identifier)
 	parent, _ := GLEIFGetDirectParentRecord(e.Session.Ctx(), id.ID)
 	children, _ := GLEIFGetDirectChildrenRecords(e.Session.Ctx(), id.ID)
 	return ro.store(e, ident, parent, children)
@@ -123,9 +123,10 @@ func (ro *relatedOrgs) query(e *et.Event, ident *dbt.Entity) []*dbt.Entity {
 
 func (ro *relatedOrgs) store(e *et.Event, ident *dbt.Entity, parent *LEIRecord, children []*LEIRecord) []*dbt.Entity {
 	var orgs []*dbt.Entity
+	id := ident.Asset.(*oamgen.Identifier)
 
-	orgent := ro.plugin.leiToOrgEntity(e, ident)
-	if orgent == nil {
+	orgent, err := org.FindOrgByLEICode(e.Session, id.ID, ro.plugin.source)
+	if err != nil || orgent == nil {
 		return orgs
 	}
 	orgs = append(orgs, orgent)
@@ -142,7 +143,7 @@ func (ro *relatedOrgs) store(e *et.Event, ident *dbt.Entity, parent *LEIRecord, 
 			ro.plugin.updateOrgFromLEIRecord(e, parentent, parent, ro.plugin.source.Confidence)
 			support.MarkAssetMonitored(e.Session, parentent, ro.plugin.source)
 			_ = ro.plugin.createRelation(e.Session.Ctx(), e.Session, parentent,
-				&general.SimpleRelation{Name: "subsidiary"}, orgent, ro.plugin.source.Confidence)
+				&oamgen.SimpleRelation{Name: "subsidiary"}, orgent, ro.plugin.source.Confidence)
 		}
 	}
 
@@ -153,7 +154,7 @@ func (ro *relatedOrgs) store(e *et.Event, ident *dbt.Entity, parent *LEIRecord, 
 		}
 
 		childent, err := org.CreateOrgAsset(e.Session, orgent,
-			&general.SimpleRelation{Name: "subsidiary"}, childorg, ro.plugin.source)
+			&oamgen.SimpleRelation{Name: "subsidiary"}, childorg, ro.plugin.source)
 		if err == nil {
 			orgs = append(orgs, childent)
 			ro.plugin.updateOrgFromLEIRecord(e, childent, child, ro.plugin.source.Confidence)

@@ -19,7 +19,7 @@ import (
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
-	"github.com/owasp-amass/open-asset-model/general"
+	oamgen "github.com/owasp-amass/open-asset-model/general"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
 
@@ -64,7 +64,7 @@ func (fc *fuzzyCompletions) lookup(e *et.Event, orgent *dbt.Entity, since time.T
 				continue
 			}
 			if a, err := e.Session.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && a != nil {
-				if id, ok := a.Asset.(*general.Identifier); ok && id != nil && id.Type == general.LEICode {
+				if id, ok := a.Asset.(*oamgen.Identifier); ok && id != nil && id.Type == oamgen.LEICode {
 					return a
 				}
 			}
@@ -78,7 +78,7 @@ func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 	var rec *LEIRecord
 
 	if leient := fc.plugin.orgEntityToLEI(e, orgent); leient != nil {
-		lei := leient.Asset.(*general.Identifier)
+		lei := leient.Asset.(*oamgen.Identifier)
 
 		if r, err := GLEIFGetLEIRecord(e.Session.Ctx(), lei.ID); err == nil {
 			rec = r
@@ -196,7 +196,7 @@ func (fc *fuzzyCompletions) store(e *et.Event, orgent *dbt.Entity, rec *LEIRecor
 }
 
 func (fc *fuzzyCompletions) process(e *et.Event, orgent, ident *dbt.Entity) {
-	id := ident.Asset.(*general.Identifier)
+	id := ident.Asset.(*oamgen.Identifier)
 
 	_ = e.Dispatcher.DispatchEvent(&et.Event{
 		Name:    id.UniqueID,
