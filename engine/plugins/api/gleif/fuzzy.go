@@ -88,9 +88,8 @@ func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 
 	if rec == nil {
 		o := orgent.Asset.(*oamorg.Organization)
-		brand := org.ExtractBrandName(o.Name)
 
-		result, err := GLEIFSearchFuzzyCompletions(e.Session.Ctx(), brand)
+		result, err := GLEIFSearchFuzzyCompletions(e.Session.Ctx(), o.Name)
 		if err != nil {
 			e.Session.Log().Error(err.Error(), slog.Group("plugin", "name", fc.plugin.name, "handler", fc.name))
 			return nil
@@ -99,10 +98,11 @@ func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 		m := make(map[string]string)
 		for _, d := range result.Data {
 			if d.Type == "fuzzycompletions" && d.Relationships.LEIRecords.Data.Type == "lei-records" {
-				m[d.Attributes.Value] = d.Relationships.LEIRecords.Data.ID
+				key := strings.ToLower(d.Attributes.Value)
+				m[key] = d.Relationships.LEIRecords.Data.ID
 			}
 		}
-		rec = filterFuzzyCompletions(e, orgent, brand, m)
+		rec = filterFuzzyCompletions(e, orgent, o.Name, m)
 	}
 
 	if rec == nil {
@@ -110,6 +110,7 @@ func (fc *fuzzyCompletions) query(e *et.Event, orgent *dbt.Entity) *dbt.Entity {
 			"org", orgent.ID, slog.Group("plugin", "name", fc.plugin.name, "handler", fc.name))
 		return nil
 	}
+
 	return fc.store(e, orgent, rec, conf)
 }
 

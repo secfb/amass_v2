@@ -14,6 +14,7 @@ import (
 
 	"github.com/adrg/strutil"
 	"github.com/adrg/strutil/metrics"
+	"github.com/caffix/stringset"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
@@ -93,23 +94,29 @@ func NameMatch(sess et.Session, orgent *dbt.Entity, names []string) ([]string, [
 		return exact, partial, found
 	}
 
-	var orgNames []string
+	set := stringset.New()
+	defer set.Close()
+
 	if o.Name != "" {
-		orgNames = append(orgNames, o.Name)
+		set.Insert(o.Name)
 	}
 	if o.LegalName != "" {
-		orgNames = append(orgNames, o.LegalName)
+		set.Insert(o.LegalName)
 	}
 
-	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(sess.Ctx(), 10*time.Second)
 	defer cancel()
 
 	if edges, err := sess.DB().OutgoingEdges(ctx, orgent, time.Time{}, "id"); err == nil && len(edges) > 0 {
+		seconds := 10 * len(edges)
+		ctx, cancel := context.WithTimeout(sess.Ctx(), time.Duration(seconds)*time.Second)
+		defer cancel()
+
 		for _, edge := range edges {
 			if a, err := sess.DB().FindEntityById(ctx, edge.ToEntity.ID); err == nil && a != nil {
 				if id, ok := a.Asset.(*general.Identifier); ok &&
 					(id.Type == general.OrganizationName || id.Type == general.LegalName) {
-					orgNames = append(orgNames, id.ID)
+					set.Insert(id.ID)
 				}
 			}
 		}
@@ -123,7 +130,7 @@ func NameMatch(sess et.Session, orgent *dbt.Entity, names []string) ([]string, [
 		Mismatch: -0.5,
 	}
 
-	for _, orgname := range orgNames {
+	for _, orgname := range set.Slice() {
 		var remaining []string
 
 		for _, name := range names {
