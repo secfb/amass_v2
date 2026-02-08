@@ -9,8 +9,10 @@ import (
 	"errors"
 	"time"
 
+	"github.com/caffix/stringset"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	dbt "github.com/owasp-amass/asset-db/types"
+	oam "github.com/owasp-amass/open-asset-model"
 	oamcon "github.com/owasp-amass/open-asset-model/contact"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
 )
@@ -130,6 +132,9 @@ func existsAndSharesLocEntity(sess et.Session, obj *dbt.Entity, o *oamorg.Organi
 		}
 	}
 
+	// get all locations that match the ones discovered on the graph
+	locs = append(locs, matchingLocations(sess, locs)...)
+
 	var orgents, crecords []*dbt.Entity
 	for _, loc := range locs {
 		if edges, err := sess.DB().IncomingEdges(ctx, loc, time.Time{}, "legal_address", "hq_address", "location"); err == nil {
@@ -164,6 +169,47 @@ func existsAndSharesLocEntity(sess et.Session, obj *dbt.Entity, o *oamorg.Organi
 	}
 
 	return nil, errors.New("no matching org found")
+}
+
+func matchingLocations(sess et.Session, locs []*dbt.Entity) []*dbt.Entity {
+	var newlocs []*dbt.Entity
+
+	set := stringset.New()
+	defer set.Close()
+
+	for _, loc := range locs {
+		set.Insert(loc.ID)
+	}
+
+	for _, loc := range locs {
+		lasset, valid := loc.Asset.(*oamcon.Location)
+		if !valid {
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(sess.Ctx(), 10*time.Second)
+		defer cancel()
+
+		ents, err := sess.DB().FindEntitiesByContent(ctx, oam.Location, time.Time{}, 0, dbt.ContentFilters{
+			"building_number": lasset.BuildingNumber,
+			"street_name":     lasset.StreetName,
+			"city":            lasset.City,
+			"province":        lasset.Province,
+			"country":         lasset.Country,
+		})
+		if err != nil || len(ents) == 0 {
+			continue
+		}
+
+		for _, ent := range ents {
+			if !set.Has(ent.ID) {
+				set.Insert(ent.ID)
+				newlocs = append(newlocs, ent)
+			}
+		}
+	}
+
+	return newlocs
 }
 
 func existsAndSharesAncestorEntity(sess et.Session, obj *dbt.Entity, o *oamorg.Organization) (*dbt.Entity, error) {

@@ -228,7 +228,7 @@ func newNode(idx int, a *types.Entity) *Node {
 	case *oamreg.DomainRecord:
 		key = "WHOIS: " + key
 	case *contact.Location:
-		parts := []string{v.BuildingNumber, v.StreetName, v.City, v.Province, v.PostalCode}
+		parts := []string{v.BuildingNumber, v.StreetName, v.City, v.Province, v.Country}
 		key = strings.Join(parts, " ")
 	case *org.Organization:
 		key = fmt.Sprintf("%s (%s)", v.Name, v.ID)
