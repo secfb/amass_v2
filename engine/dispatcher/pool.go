@@ -162,7 +162,7 @@ func (p *pipelinePool) pickInstance(shardKey string) *pipelineInstance {
 }
 
 func (p *pipelinePool) runPump() {
-	tick := time.NewTicker(250 * time.Millisecond)
+	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 
 	for {
@@ -178,13 +178,13 @@ func (p *pipelinePool) runPump() {
 }
 
 func (p *pipelinePool) pumpOnce() {
-	stats, err := p.dis.snapshotSessBacklogStats(p.eventTy)
-	if err != nil {
+	// check that at least one instance has enough capacity
+	if !p.hasCapacity(p.limits.PerSessBurst) {
 		return
 	}
 
-	// check that at least one instance has enough capacity
-	if !p.hasCapacity(p.limits.PerSessBurst) {
+	stats, err := p.dis.snapshotSessBacklogStats(p.eventTy)
+	if err != nil {
 		return
 	}
 
@@ -224,13 +224,13 @@ func (p *pipelinePool) pumpOnce() {
 				Session:    s.Session,
 			}
 
-			inst := p.pickInstance(p.workShardKey(event))
-			if inst == nil {
-				_ = s.Session.Backlog().Release(ent, p.eventTy, false)
-				continue
+			var queued bool
+			if inst := p.pickInstance(p.workShardKey(event)); inst != nil {
+				if err := inst.enqueue(event); err == nil {
+					queued = true
+				}
 			}
-
-			if err := inst.enqueue(event); err != nil {
+			if !queued {
 				_ = s.Session.Backlog().Release(ent, p.eventTy, false)
 			}
 		}
