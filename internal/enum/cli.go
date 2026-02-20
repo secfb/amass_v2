@@ -239,6 +239,7 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 	if args.Timeout == 0 {
 		args.Timeout = 30
 	}
+	timeoutDur := time.Duration(args.Timeout) * time.Minute
 
 	var progress *pb.ProgressBar
 	if !args.Options.Silent {
@@ -250,7 +251,7 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 		var previous, finished int
 		t := time.NewTicker(2 * time.Second)
 		defer t.Stop()
-		term := time.NewTimer(time.Duration(args.Timeout) * time.Minute)
+		term := time.NewTimer(timeoutDur)
 		defer term.Stop()
 
 		for {
@@ -273,7 +274,7 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 
 					if comp := stats.WorkItemsCompleted; comp != previous {
 						previous = comp
-						_ = term.Reset(time.Duration(args.Timeout))
+						_ = term.Reset(timeoutDur)
 					}
 
 					if stats.WorkItemsCompleted == stats.WorkItemsTotal {
