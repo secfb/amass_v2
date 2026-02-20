@@ -37,7 +37,8 @@ func (fe *fqdnEndpoint) check(e *et.Event) error {
 	if !e.Session.Config().Active {
 		return nil
 	}
-	if !support.HasDNSRecordType(e, int(dns.TypeA)) &&
+	if !support.HasDNSRecordType(e, int(dns.TypeCNAME)) &&
+		!support.HasDNSRecordType(e, int(dns.TypeA)) &&
 		!support.HasDNSRecordType(e, int(dns.TypeAAAA)) {
 		return nil
 	}
