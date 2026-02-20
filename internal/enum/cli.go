@@ -107,7 +107,7 @@ func defineArgumentFlags(fs *flag.FlagSet, args *Args) {
 	fs.Var(&args.Ports, "p", "Ports separated by commas (default: 80, 443)")
 	fs.Var(args.Resolvers, "r", "IP addresses of untrusted DNS resolvers (can be used multiple times)")
 	fs.Var(args.Resolvers, "tr", "IP addresses of trusted DNS resolvers (can be used multiple times)")
-	fs.IntVar(&args.Timeout, "timeout", 0, "Minutes to run without progress before terminating (Default: 30)")
+	fs.IntVar(&args.Timeout, "timeout", 30, "Minutes to run without progress before terminating (Default: 30)")
 }
 
 func defineOptionFlags(fs *flag.FlagSet, args *Args) {
@@ -236,11 +236,6 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 		}
 	}
 
-	if args.Timeout == 0 {
-		args.Timeout = 30
-	}
-	timeoutDur := time.Duration(args.Timeout) * time.Minute
-
 	var progress *pb.ProgressBar
 	if !args.Options.Silent {
 		progress = pb.Start64(int64(count))
@@ -249,10 +244,12 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 	done := make(chan struct{}, 1)
 	go func() {
 		var previous, finished int
-		t := time.NewTicker(2 * time.Second)
-		defer t.Stop()
+		timeoutDur := time.Duration(args.Timeout) * time.Minute
+
 		term := time.NewTimer(timeoutDur)
 		defer term.Stop()
+		t := time.NewTicker(2 * time.Second)
+		defer t.Stop()
 
 		for {
 			select {
