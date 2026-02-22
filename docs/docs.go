@@ -23,7 +23,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/v1/health": {
+        "/health": {
             "get": {
                 "description": "Returns a simple health indicator that the Amass Engine API is running.",
                 "produces": [
@@ -37,13 +37,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.HealthCheckResponse"
+                            "$ref": "#/definitions/v1.HealthCheckResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions": {
+        "/sessions": {
             "post": {
                 "description": "Creates a new Amass engine session using the provided configuration JSON.",
                 "consumes": [
@@ -71,25 +71,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/server.CreateSessionResponse"
+                            "$ref": "#/definitions/v1.CreateSessionResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid JSON or invalid configuration",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Failed to create session",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions/list": {
+        "/sessions/list": {
             "get": {
                 "description": "Returns the session tokens for all currently active sessions.",
                 "produces": [
@@ -103,19 +103,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.ListSessionsResponse"
+                            "$ref": "#/definitions/v1.ListSessionsResponse"
                         }
                     },
                     "404": {
                         "description": "Zero sessions found",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions/{session_token}": {
+        "/sessions/{session_token}": {
             "delete": {
                 "description": "Cancels an active session. Returns no content on success.",
                 "tags": [
@@ -138,19 +138,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid session token",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Session not found",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions/{session_token}/assets/{asset_type}": {
+        "/sessions/{session_token}/assets/{asset_type}": {
             "post": {
                 "description": "Submits a single OAM asset to the session. The asset type is provided in the URL path; the request body is a raw OAM JSON object without a 'type' field.",
                 "consumes": [
@@ -196,31 +196,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.AddAssetResponse"
+                            "$ref": "#/definitions/v1.AddAssetResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid session token, invalid JSON, or invalid asset object",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Session not found",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Failed to submit the asset",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions/{session_token}/assets/{asset_type}:bulk": {
+        "/sessions/{session_token}/assets/{asset_type}:bulk": {
             "post": {
                 "description": "Submits multiple OAM assets to the session in one request. The asset type is provided in the URL path. Each item in 'items' is a raw OAM JSON object without a 'type' field.",
                 "consumes": [
@@ -254,7 +254,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/server.BulkAddAssetsRequest"
+                            "$ref": "#/definitions/v1.BulkAddAssetsRequest"
                         }
                     }
                 ],
@@ -262,37 +262,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.BulkAddAssetsResponse"
+                            "$ref": "#/definitions/v1.BulkAddAssetsResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid session token, invalid JSON, empty items, or no valid items",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Session not found",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "413": {
                         "description": "Too many items in bulk request",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Server failure (response includes ingested/stored/failed)",
                         "schema": {
-                            "$ref": "#/definitions/server.BulkAddAssetsResponse"
+                            "$ref": "#/definitions/v1.BulkAddAssetsResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions/{session_token}/scope/{asset_type}": {
+        "/sessions/{session_token}/scope/{asset_type}": {
             "get": {
                 "description": "Returns the scoped assets for the given session and asset type as an array of raw OAM JSON objects.",
                 "produces": [
@@ -322,25 +322,25 @@ const docTemplate = `{
                     "200": {
                         "description": "Response contains a 'data' array of raw OAM JSON",
                         "schema": {
-                            "$ref": "#/definitions/server.ScopeResponse"
+                            "$ref": "#/definitions/v1.ScopeResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid session token",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Session not found or scope not found for asset type",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/v1/sessions/{session_token}/stats": {
+        "/sessions/{session_token}/stats": {
             "get": {
                 "description": "Returns the current runtime statistics for a session.",
                 "produces": [
@@ -363,19 +363,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.SessionStatsResponse"
+                            "$ref": "#/definitions/v1.SessionStatsResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid session token",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Session not found",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
@@ -414,13 +414,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid session token",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Session not found",
                         "schema": {
-                            "$ref": "#/definitions/server.ErrorResponse"
+                            "$ref": "#/definitions/v1.ErrorResponse"
                         }
                     }
                 }
@@ -697,7 +697,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.AddAssetResponse": {
+        "v1.AddAssetResponse": {
             "type": "object",
             "properties": {
                 "entityID": {
@@ -705,7 +705,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.BulkAddAssetsRequest": {
+        "v1.BulkAddAssetsRequest": {
             "type": "object",
             "properties": {
                 "items": {
@@ -720,7 +720,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.BulkAddAssetsResponse": {
+        "v1.BulkAddAssetsResponse": {
             "type": "object",
             "properties": {
                 "failed": {
@@ -734,7 +734,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.CreateSessionResponse": {
+        "v1.CreateSessionResponse": {
             "type": "object",
             "properties": {
                 "sessionToken": {
@@ -742,7 +742,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.ErrorResponse": {
+        "v1.ErrorResponse": {
             "type": "object",
             "properties": {
                 "code": {
@@ -756,7 +756,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.HealthCheckResponse": {
+        "v1.HealthCheckResponse": {
             "type": "object",
             "properties": {
                 "result": {
@@ -764,7 +764,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.ListSessionsResponse": {
+        "v1.ListSessionsResponse": {
             "type": "object",
             "properties": {
                 "sessionTokens": {
@@ -775,7 +775,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.ScopeResponse": {
+        "v1.ScopeResponse": {
             "type": "object",
             "properties": {
                 "data": {
@@ -790,7 +790,7 @@ const docTemplate = `{
                 }
             }
         },
-        "server.SessionStatsResponse": {
+        "v1.SessionStatsResponse": {
             "type": "object",
             "properties": {
                 "workItemsCompleted": {
@@ -830,7 +830,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
-	BasePath:         "/",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "Amass Engine API (v1)",
 	Description:      "HTTP API for managing Amass Engine sessions and submitting Open Asset Model (OAM) assets.\nCreate a session with an engine config, query session stats/scope, and ingest typed OAM assets (single or bulk).\nIncludes a WebSocket endpoint for streaming session logs.",

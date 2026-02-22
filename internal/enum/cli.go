@@ -19,7 +19,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	"github.com/owasp-amass/amass/v5/config"
-	"github.com/owasp-amass/amass/v5/engine/api/client"
+	client "github.com/owasp-amass/amass/v5/engine/api/client/v1"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	"github.com/owasp-amass/amass/v5/internal/afmt"
 	"github.com/owasp-amass/amass/v5/internal/tools"

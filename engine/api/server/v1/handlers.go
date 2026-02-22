@@ -2,18 +2,20 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package server
+package v1
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/owasp-amass/amass/v5/config"
+	et "github.com/owasp-amass/amass/v5/engine/types"
 	oam "github.com/owasp-amass/open-asset-model"
 )
 
@@ -61,29 +63,37 @@ var (
 	ErrBadRequest = errors.New("bad request")
 )
 
-func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		next.ServeHTTP(w, r)
-		s.log.Info("request completed", "method", r.Method, "path", r.URL.Path, "duration", time.Since(start))
-	})
+type V1Handlers struct {
+	ctx context.Context
+	log *slog.Logger
+	dis et.Dispatcher
+	mgr et.SessionManager
 }
 
-// healthCheck godoc
+func NewV1Handlers(ctx context.Context, dis et.Dispatcher, mgr et.SessionManager, log *slog.Logger) (*V1Handlers, error) {
+	return &V1Handlers{
+		ctx: ctx,
+		log: log,
+		dis: dis,
+		mgr: mgr,
+	}, nil
+}
+
+// HealthCheck godoc
 //
 // @Summary      Health check
 // @Description  Returns a simple health indicator that the Amass Engine API is running.
 // @Tags         system
 // @Produce      json
 // @Success      200  {object}  HealthCheckResponse
-// @Router       /v1/health [get]
-func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
+// @Router       /health [get]
+func (v *V1Handlers) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	resp := HealthCheckResponse{Result: "Amass Engine OK"}
 
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// createSessionHandler godoc
+// CreateSessionHandler godoc
 //
 // @Summary      Create a new engine session
 // @Description  Creates a new Amass engine session using the provided configuration JSON.
@@ -94,8 +104,8 @@ func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
 // @Success      201     {object}  CreateSessionResponse
 // @Failure      400     {object}  ErrorResponse  "Invalid JSON or invalid configuration"
 // @Failure      500     {object}  ErrorResponse  "Failed to create session"
-// @Router       /v1/sessions [post]
-func (s *Server) createSessionHandler(w http.ResponseWriter, r *http.Request) {
+// @Router       /sessions [post]
+func (v *V1Handlers) CreateSessionHandler(w http.ResponseWriter, r *http.Request) {
 	raw, err := readRawJSON(r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON", err)
@@ -117,7 +127,7 @@ func (s *Server) createSessionHandler(w http.ResponseWriter, r *http.Request) {
 		_ = t.Split(k)
 	}
 
-	sess, err := s.mgr.NewSession(&config)
+	sess, err := v.mgr.NewSession(&config)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create session", err)
 		return
@@ -128,7 +138,7 @@ func (s *Server) createSessionHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// listSessionsHandler godoc
+// ListSessionsHandler godoc
 //
 // @Summary      List active sessions
 // @Description  Returns the session tokens for all currently active sessions.
@@ -136,9 +146,9 @@ func (s *Server) createSessionHandler(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Success      200  {object}  ListSessionsResponse
 // @Failure      404  {object}  ErrorResponse  "Zero sessions found"
-// @Router       /v1/sessions/list [get]
-func (s *Server) listSessionsHandler(w http.ResponseWriter, r *http.Request) {
-	sessions := s.mgr.GetSessions()
+// @Router       /sessions/list [get]
+func (v *V1Handlers) ListSessionsHandler(w http.ResponseWriter, r *http.Request) {
+	sessions := v.mgr.GetSessions()
 	if len(sessions) == 0 {
 		writeError(w, http.StatusNotFound, "zero sessions found", ErrNotFound)
 		return
@@ -152,7 +162,7 @@ func (s *Server) listSessionsHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// terminateSessionHandler godoc
+// TerminateSessionHandler godoc
 //
 // @Summary      Terminate a session
 // @Description  Cancels an active session. Returns no content on success.
@@ -161,8 +171,8 @@ func (s *Server) listSessionsHandler(w http.ResponseWriter, r *http.Request) {
 // @Success      204
 // @Failure      400  {object}  ErrorResponse  "Invalid session token"
 // @Failure      404  {object}  ErrorResponse  "Session not found"
-// @Router       /v1/sessions/{session_token} [delete]
-func (s *Server) terminateSessionHandler(w http.ResponseWriter, r *http.Request) {
+// @Router       /sessions/{session_token} [delete]
+func (v *V1Handlers) TerminateSessionHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sid := vars["session_token"]
 
@@ -174,17 +184,17 @@ func (s *Server) terminateSessionHandler(w http.ResponseWriter, r *http.Request)
 	}
 	// Check if the session exists
 	// and if the session is not already terminated
-	sess := s.mgr.GetSession(token)
+	sess := v.mgr.GetSession(token)
 	if sess == nil {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
 	}
 
-	go s.mgr.CancelSession(token)
+	go v.mgr.CancelSession(token)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// getStatsHandler godoc
+// GetStatsHandler godoc
 //
 // @Summary      Get session statistics
 // @Description  Returns the current runtime statistics for a session.
@@ -194,8 +204,8 @@ func (s *Server) terminateSessionHandler(w http.ResponseWriter, r *http.Request)
 // @Success      200  {object}  SessionStatsResponse
 // @Failure      400  {object}  ErrorResponse  "Invalid session token"
 // @Failure      404  {object}  ErrorResponse  "Session not found"
-// @Router       /v1/sessions/{session_token}/stats [get]
-func (s *Server) getStatsHandler(w http.ResponseWriter, r *http.Request) {
+// @Router       /sessions/{session_token}/stats [get]
+func (v *V1Handlers) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sid := vars["session_token"]
 
@@ -207,7 +217,7 @@ func (s *Server) getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if the session exists
 	// and if the session is not already terminated
-	sess := s.mgr.GetSession(token)
+	sess := v.mgr.GetSession(token)
 	if sess == nil {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
@@ -219,7 +229,7 @@ func (s *Server) getStatsHandler(w http.ResponseWriter, r *http.Request) {
 	stats.RUnlock()
 }
 
-// getScopeHandler godoc
+// GetScopeHandler godoc
 //
 // @Summary      Get session scope for an asset type
 // @Description  Returns the scoped assets for the given session and asset type as an array of raw OAM JSON objects.
@@ -230,8 +240,8 @@ func (s *Server) getStatsHandler(w http.ResponseWriter, r *http.Request) {
 // @Success      200  {object}  ScopeResponse  "Response contains a 'data' array of raw OAM JSON"
 // @Failure      400  {object}  ErrorResponse  "Invalid session token"
 // @Failure      404  {object}  ErrorResponse  "Session not found or scope not found for asset type"
-// @Router       /v1/sessions/{session_token}/scope/{asset_type} [get]
-func (s *Server) getScopeHandler(w http.ResponseWriter, r *http.Request) {
+// @Router       /sessions/{session_token}/scope/{asset_type} [get]
+func (v *V1Handlers) GetScopeHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sid := vars["session_token"]
 	assetType := strings.ToLower(strings.TrimSpace(vars["asset_type"]))
@@ -244,7 +254,7 @@ func (s *Server) getScopeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if the session exists
 	// and if the session is not already terminated
-	sess := s.mgr.GetSession(token)
+	sess := v.mgr.GetSession(token)
 	if sess == nil {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
@@ -299,7 +309,7 @@ func (s *Server) getScopeHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, response)
 }
 
-// addAssetTypedHandler godoc
+// AddAssetTypedHandler godoc
 //
 // @Summary      Add a single asset (typed by path)
 // @Description  Submits a single OAM asset to the session. The asset type is provided in the URL path; the request body is a raw OAM JSON object without a 'type' field.
@@ -313,8 +323,8 @@ func (s *Server) getScopeHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure      400            {object}  ErrorResponse  "Invalid session token, invalid JSON, or invalid asset object"
 // @Failure      404            {object}  ErrorResponse  "Session not found"
 // @Failure      500            {object}  ErrorResponse  "Failed to submit the asset"
-// @Router       /v1/sessions/{session_token}/assets/{asset_type} [post]
-func (s *Server) addAssetTypedHandler(w http.ResponseWriter, r *http.Request) {
+// @Router       /sessions/{session_token}/assets/{asset_type} [post]
+func (v *V1Handlers) AddAssetTypedHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sid := vars["session_token"]
 	assetType := strings.ToLower(strings.TrimSpace(vars["asset_type"]))
@@ -327,7 +337,7 @@ func (s *Server) addAssetTypedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if the session exists
 	// and if the session is not already terminated
-	sess := s.mgr.GetSession(token)
+	sess := v.mgr.GetSession(token)
 	if sess == nil {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
@@ -350,7 +360,7 @@ func (s *Server) addAssetTypedHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	eid, err := s.PutAsset(s.ctx, sess, asset)
+	eid, err := v.PutAsset(v.ctx, sess, asset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to submit the asset", err)
 		return
@@ -361,7 +371,7 @@ func (s *Server) addAssetTypedHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// addAssetsBulkHandler godoc
+// AddAssetsBulkHandler godoc
 //
 // @Summary      Add assets in bulk (typed by path)
 // @Description  Submits multiple OAM assets to the session in one request. The asset type is provided in the URL path. Each item in 'items' is a raw OAM JSON object without a 'type' field.
@@ -376,8 +386,8 @@ func (s *Server) addAssetTypedHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure      404            {object}  ErrorResponse  "Session not found"
 // @Failure      413            {object}  ErrorResponse  "Too many items in bulk request"
 // @Failure      500            {object}  BulkAddAssetsResponse  "Server failure (response includes ingested/stored/failed)"
-// @Router       /v1/sessions/{session_token}/assets/{asset_type}:bulk [post]
-func (s *Server) addAssetsBulkHandler(w http.ResponseWriter, r *http.Request) {
+// @Router       /sessions/{session_token}/assets/{asset_type}:bulk [post]
+func (v *V1Handlers) AddAssetsBulkHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	sid := vars["session_token"]
 	assetType := strings.ToLower(strings.TrimSpace(vars["asset_type"]))
@@ -390,7 +400,7 @@ func (s *Server) addAssetsBulkHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if the session exists
 	// and if the session is not already terminated
-	sess := s.mgr.GetSession(token)
+	sess := v.mgr.GetSession(token)
 	if sess == nil {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
@@ -425,7 +435,7 @@ func (s *Server) addAssetsBulkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stored, err := s.PutAssets(s.ctx, sess, assets)
+	stored, err := v.PutAssets(v.ctx, sess, assets)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, BulkAddAssetsResponse{
 			Ingested: ingested,

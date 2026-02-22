@@ -12,7 +12,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/owasp-amass/amass/v5/engine/api/client"
+	client "github.com/owasp-amass/amass/v5/engine/api/client/v1"
 )
 
 func main() {

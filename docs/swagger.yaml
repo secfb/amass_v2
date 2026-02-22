@@ -1,4 +1,4 @@
-basePath: /
+basePath: /api/v1
 definitions:
   config.Credentials:
     properties:
@@ -184,12 +184,12 @@ definitions:
           type: integer
         type: array
     type: object
-  server.AddAssetResponse:
+  v1.AddAssetResponse:
     properties:
       entityID:
         type: string
     type: object
-  server.BulkAddAssetsRequest:
+  v1.BulkAddAssetsRequest:
     properties:
       items:
         items:
@@ -199,7 +199,7 @@ definitions:
           type: array
         type: array
     type: object
-  server.BulkAddAssetsResponse:
+  v1.BulkAddAssetsResponse:
     properties:
       failed:
         type: integer
@@ -208,12 +208,12 @@ definitions:
       stored:
         type: integer
     type: object
-  server.CreateSessionResponse:
+  v1.CreateSessionResponse:
     properties:
       sessionToken:
         type: string
     type: object
-  server.ErrorResponse:
+  v1.ErrorResponse:
     properties:
       code:
         type: integer
@@ -222,19 +222,19 @@ definitions:
       error:
         type: string
     type: object
-  server.HealthCheckResponse:
+  v1.HealthCheckResponse:
     properties:
       result:
         type: string
     type: object
-  server.ListSessionsResponse:
+  v1.ListSessionsResponse:
     properties:
       sessionTokens:
         items:
           type: string
         type: array
     type: object
-  server.ScopeResponse:
+  v1.ScopeResponse:
     properties:
       data:
         items:
@@ -244,7 +244,7 @@ definitions:
           type: array
         type: array
     type: object
-  server.SessionStatsResponse:
+  v1.SessionStatsResponse:
     properties:
       workItemsCompleted:
         type: integer
@@ -266,7 +266,7 @@ info:
   title: Amass Engine API (v1)
   version: "1.0"
 paths:
-  /v1/health:
+  /health:
     get:
       description: Returns a simple health indicator that the Amass Engine API is
         running.
@@ -276,11 +276,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.HealthCheckResponse'
+            $ref: '#/definitions/v1.HealthCheckResponse'
       summary: Health check
       tags:
       - system
-  /v1/sessions:
+  /sessions:
     post:
       consumes:
       - application/json
@@ -299,19 +299,19 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/server.CreateSessionResponse'
+            $ref: '#/definitions/v1.CreateSessionResponse'
         "400":
           description: Invalid JSON or invalid configuration
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "500":
           description: Failed to create session
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
       summary: Create a new engine session
       tags:
       - sessions
-  /v1/sessions/{session_token}:
+  /sessions/{session_token}:
     delete:
       description: Cancels an active session. Returns no content on success.
       parameters:
@@ -326,15 +326,15 @@ paths:
         "400":
           description: Invalid session token
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "404":
           description: Session not found
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
       summary: Terminate a session
       tags:
       - sessions
-  /v1/sessions/{session_token}/assets/{asset_type}:
+  /sessions/{session_token}/assets/{asset_type}:
     post:
       consumes:
       - application/json
@@ -368,23 +368,23 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.AddAssetResponse'
+            $ref: '#/definitions/v1.AddAssetResponse'
         "400":
           description: Invalid session token, invalid JSON, or invalid asset object
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "404":
           description: Session not found
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "500":
           description: Failed to submit the asset
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
       summary: Add a single asset (typed by path)
       tags:
       - assets
-  /v1/sessions/{session_token}/assets/{asset_type}:bulk:
+  /sessions/{session_token}/assets/{asset_type}:bulk:
     post:
       consumes:
       - application/json
@@ -408,35 +408,35 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/server.BulkAddAssetsRequest'
+          $ref: '#/definitions/v1.BulkAddAssetsRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.BulkAddAssetsResponse'
+            $ref: '#/definitions/v1.BulkAddAssetsResponse'
         "400":
           description: Invalid session token, invalid JSON, empty items, or no valid
             items
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "404":
           description: Session not found
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "413":
           description: Too many items in bulk request
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "500":
           description: Server failure (response includes ingested/stored/failed)
           schema:
-            $ref: '#/definitions/server.BulkAddAssetsResponse'
+            $ref: '#/definitions/v1.BulkAddAssetsResponse'
       summary: Add assets in bulk (typed by path)
       tags:
       - assets
-  /v1/sessions/{session_token}/scope/{asset_type}:
+  /sessions/{session_token}/scope/{asset_type}:
     get:
       description: Returns the scoped assets for the given session and asset type
         as an array of raw OAM JSON objects.
@@ -458,19 +458,19 @@ paths:
         "200":
           description: Response contains a 'data' array of raw OAM JSON
           schema:
-            $ref: '#/definitions/server.ScopeResponse'
+            $ref: '#/definitions/v1.ScopeResponse'
         "400":
           description: Invalid session token
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "404":
           description: Session not found or scope not found for asset type
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
       summary: Get session scope for an asset type
       tags:
       - scope
-  /v1/sessions/{session_token}/stats:
+  /sessions/{session_token}/stats:
     get:
       description: Returns the current runtime statistics for a session.
       parameters:
@@ -485,16 +485,33 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.SessionStatsResponse'
+            $ref: '#/definitions/v1.SessionStatsResponse'
         "400":
           description: Invalid session token
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "404":
           description: Session not found
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
       summary: Get session statistics
+      tags:
+      - sessions
+  /sessions/list:
+    get:
+      description: Returns the session tokens for all currently active sessions.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.ListSessionsResponse'
+        "404":
+          description: Zero sessions found
+          schema:
+            $ref: '#/definitions/v1.ErrorResponse'
+      summary: List active sessions
       tags:
       - sessions
   /v1/sessions/{session_token}/ws/logs:
@@ -521,29 +538,12 @@ paths:
         "400":
           description: Invalid session token
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
         "404":
           description: Session not found
           schema:
-            $ref: '#/definitions/server.ErrorResponse'
+            $ref: '#/definitions/v1.ErrorResponse'
       summary: Stream session logs (WebSocket)
-      tags:
-      - sessions
-  /v1/sessions/list:
-    get:
-      description: Returns the session tokens for all currently active sessions.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/server.ListSessionsResponse'
-        "404":
-          description: Zero sessions found
-          schema:
-            $ref: '#/definitions/server.ErrorResponse'
-      summary: List active sessions
       tags:
       - sessions
 swagger: "2.0"

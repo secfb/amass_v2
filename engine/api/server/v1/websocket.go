@@ -2,7 +2,7 @@
 // Use of this source code is governed by Apache 2 LICENSE that can be found in the LICENSE file.
 // SPDX-License-Identifier: Apache-2.0
 
-package server
+package v1
 
 import (
 	"log"
@@ -20,7 +20,7 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-// wsLogsHandler godoc
+// WSLogsHandler godoc
 //
 // @Summary      Stream session logs (WebSocket)
 // @Description  Upgrades the HTTP connection to a WebSocket and streams session log lines as UTF-8 text frames.
@@ -33,7 +33,7 @@ var upgrader = websocket.Upgrader{
 // @Router       /v1/sessions/{session_token}/ws/logs [get]
 // @Header  	 101  {string}  Upgrade     "websocket"
 // @Header  	 101  {string}  Connection  "Upgrade"
-func (s *Server) wsLogsHandler(w http.ResponseWriter, r *http.Request) {
+func (v *V1Handlers) WSLogsHandler(w http.ResponseWriter, r *http.Request) {
 	sid := mux.Vars(r)["session_token"]
 
 	// Check if the session token is valid
@@ -44,7 +44,7 @@ func (s *Server) wsLogsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if the session exists
 	// and if the session is not already terminated
-	sess := s.mgr.GetSession(token)
+	sess := v.mgr.GetSession(token)
 	if sess == nil {
 		writeError(w, http.StatusNotFound, "session not found", ErrNotFound)
 		return
@@ -64,7 +64,7 @@ func (s *Server) wsLogsHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go writeLoop(conn, sess.PubSub().Subscribe())
-	s.log.Info("connected to session log stream")
+	v.log.Info("connected to session log stream")
 }
 
 func writeLoop(conn *websocket.Conn, ch <-chan *string) {

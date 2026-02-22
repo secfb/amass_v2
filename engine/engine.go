@@ -42,8 +42,8 @@ func NewEngine(l *slog.Logger) (*Engine, error) {
 		return nil, err
 	}
 
-	srv := server.NewServer(l, dis, mgr)
-	if srv == nil {
+	srv, err := server.NewServer(l, dis, mgr)
+	if err != nil || srv == nil {
 		dis.Shutdown()
 		mgr.Shutdown()
 		return nil, errors.New("failed to create the API server")

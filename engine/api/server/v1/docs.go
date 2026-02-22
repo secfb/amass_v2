@@ -17,7 +17,7 @@
 // @license.name    Apache 2.0
 // @license.url     https://www.apache.org/licenses/LICENSE-2.0
 //
-// @BasePath        /
+// @BasePath        /api/v1
 //
 // @tag.name        system
 // @tag.description System endpoints (health, etc.)
@@ -29,4 +29,4 @@
 // @tag.description Submit typed OAM assets to a session (single or bulk).
 // @tag.name        ws
 // @tag.description WebSocket endpoints (e.g., session log streaming).
-package server
+package v1
