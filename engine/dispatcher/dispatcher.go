@@ -117,6 +117,7 @@ func (d *dynamicDispatcher) DispatchEvent(e *et.Event) error {
 
 	err := e.Session.Backlog().Enqueue(e.Entity)
 	if err != nil {
+		_ = d.meta.DeleteSessionEntry(e.Session.ID().String(), e.Entity.ID)
 		return err
 	}
 
@@ -144,6 +145,7 @@ func (d *dynamicDispatcher) ResubmitEvent(e *et.Event) error {
 
 	err := e.Session.Backlog().Enqueue(e.Entity)
 	if err != nil {
+		_ = d.meta.DeleteSessionEntry(e.Session.ID().String(), e.Entity.ID)
 		return err
 	}
 
@@ -235,13 +237,9 @@ func (d *dynamicDispatcher) updateMetaMap() {
 }
 
 func (d *dynamicDispatcher) removeKilledSessions() {
-	sessions := d.mgr.GetSessions()
-	if len(sessions) == 0 {
-		return
-	}
-
 	var sids []string
-	for _, sess := range sessions {
+
+	for _, sess := range d.mgr.GetSessions() {
 		sids = append(sids, sess.ID().String())
 	}
 

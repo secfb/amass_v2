@@ -7,8 +7,11 @@ package engine
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"os"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/owasp-amass/amass/v5/engine/api/server"
 	"github.com/owasp-amass/amass/v5/engine/dispatcher"
@@ -27,6 +30,10 @@ type Engine struct {
 }
 
 func NewEngine(l *slog.Logger) (*Engine, error) {
+	go func() {
+		_ = http.ListenAndServe("127.0.0.1:6060", nil)
+	}()
+
 	if l == nil {
 		l = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	}
