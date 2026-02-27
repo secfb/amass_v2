@@ -112,14 +112,24 @@ func (hp *httpProbing) query(e *et.Event, entity *dbt.Entity, target string, por
 }
 
 func (hp *httpProbing) store(e *et.Event, resp *http.Response, entity *dbt.Entity, port int) []*support.Finding {
-	hp.servlock.Lock()
-	defer hp.servlock.Unlock()
-
 	addr := entity.Asset.Key()
+
+	hp.servlock.Lock()
+	serv := support.ServiceWithIdentifier(&hp.hash, e.Session.ID().String(), addr)
+	hp.servlock.Unlock()
+	serv.Type = "web-service"
+	serv.Output = resp.Body
+	serv.OutputLen = int(resp.Length)
+	serv.Attributes = resp.Header
+
 	var firstAsset *dbt.Entity
 	var firstCert *x509.Certificate
 	var findings []*support.Finding
-	if resp.TLS != nil && resp.TLS.HandshakeComplete && len(resp.TLS.PeerCertificates) > 0 {
+	if count := len(resp.TLS.PeerCertificates); resp.TLS != nil && resp.TLS.HandshakeComplete && count > 0 {
+		dur := time.Duration(count*3) * time.Second
+		ctx, cancel := context.WithTimeout(e.Session.Ctx(), dur)
+		defer cancel()
+
 		var prev *dbt.Entity
 		// traverse the certificate chain
 		for _, cert := range resp.TLS.PeerCertificates {
@@ -127,9 +137,6 @@ func (hp *httpProbing) store(e *et.Event, resp *http.Response, entity *dbt.Entit
 			if c == nil {
 				break
 			}
-
-			ctx, cancel := context.WithTimeout(e.Session.Ctx(), 10*time.Second)
-			defer cancel()
 
 			a, err := e.Session.DB().CreateAsset(ctx, c)
 			if err != nil {
@@ -152,15 +159,6 @@ func (hp *httpProbing) store(e *et.Event, resp *http.Response, entity *dbt.Entit
 			prev = a
 		}
 	}
-
-	serv := support.ServiceWithIdentifier(&hp.hash, e.Session.ID().String(), addr)
-	if serv == nil {
-		return findings
-	}
-	serv.Type = "web-service"
-	serv.Output = resp.Body
-	serv.OutputLen = int(resp.Length)
-	serv.Attributes = resp.Header
 
 	var c *oamcert.TLSCertificate
 	if firstAsset != nil {
@@ -206,6 +204,5 @@ func (hp *httpProbing) store(e *et.Event, resp *http.Response, entity *dbt.Entit
 			Rel:      &general.SimpleRelation{Name: "certificate"},
 		})
 	}
-
 	return findings
 }
