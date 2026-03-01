@@ -35,8 +35,6 @@ const (
 	defaultUserAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
 	windowsUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
 	darwinUserAgent  = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
-	httpTimeout      = 10 * time.Second
-	handshakeTimeout = 5 * time.Second
 )
 
 var (
@@ -82,19 +80,20 @@ type BasicAuth struct {
 
 func init() {
 	DefaultClient = &http.Client{
-		Timeout: httpTimeout,
+		Timeout: 20 * time.Second,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           amassnet.DialContext,
-			ForceAttemptHTTP2:     false,
-			MaxIdleConns:          128,
-			MaxConnsPerHost:       8,
-			MaxIdleConnsPerHost:   1,
-			IdleConnTimeout:       10 * time.Second,
-			TLSHandshakeTimeout:   handshakeTimeout,
-			ResponseHeaderTimeout: 5 * time.Second,
+			DialContext:           amassnet.NewDialContext(5 * time.Second),
+			ForceAttemptHTTP2:     true,
+			MaxConnsPerHost:       50,
+			MaxIdleConns:          200,
+			MaxIdleConnsPerHost:   20,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   5 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
-			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+			ResponseHeaderTimeout: 8 * time.Second,
+			TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
+			DisableCompression:    false,
 		},
 		Jar: nil,
 	}
@@ -317,10 +316,12 @@ func whichDomain(name string, scope []string) string {
 // TLSConn attempts to make a TLS connection with the host on the given port.
 func TLSConn(ctx context.Context, host string, port int) (*tls.Conn, error) {
 	// set the maximum time allowed for making the connection
-	tCtx, cancel := context.WithTimeout(ctx, handshakeTimeout)
+	tCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 	// obtain the connection
-	conn, err := amassnet.DialContext(tCtx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+	dial := amassnet.NewDialContext(5 * time.Second)
+	conn, err := dial(tCtx, "tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
 		return nil, err
 	}

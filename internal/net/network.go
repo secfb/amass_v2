@@ -87,41 +87,41 @@ func (r Semaphore) Release() {
 	}
 }
 
-// DialContext performs the dial using global variables (e.g. LocalAddr).
-func DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	d := &net.Dialer{
-		DualStack: true,
-		Timeout:   10 * time.Second,
-		KeepAlive: 30 * time.Second,
-	}
+type DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 
-	_, p, err := net.SplitHostPort(addr)
-	if err != nil {
-		return nil, err
-	}
+// NewDialContext performs the dial using global variables (e.g. LocalAddr).
+func NewDialContext(timeout time.Duration) DialContext {
+	d := &net.Dialer{Timeout: timeout}
 
-	port, err := strconv.Atoi(p)
-	if err != nil {
-		return nil, err
-	}
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		_, p, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
 
-	if LocalAddr != nil {
-		addr, _, err := net.ParseCIDR(LocalAddr.String())
+		port, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
 
-		if err == nil && strings.HasPrefix(network, "tcp") {
-			d.LocalAddr = &net.TCPAddr{
-				IP:   addr,
-				Port: port,
-			}
-		} else if err == nil && strings.HasPrefix(network, "udp") {
-			d.LocalAddr = &net.UDPAddr{
-				IP:   addr,
-				Port: port,
+		if LocalAddr != nil {
+			addr, _, err := net.ParseCIDR(LocalAddr.String())
+
+			if err == nil && strings.HasPrefix(network, "tcp") {
+				d.LocalAddr = &net.TCPAddr{
+					IP:   addr,
+					Port: port,
+				}
+			} else if err == nil && strings.HasPrefix(network, "udp") {
+				d.LocalAddr = &net.UDPAddr{
+					IP:   addr,
+					Port: port,
+				}
 			}
 		}
-	}
 
-	return d.DialContext(ctx, network, addr)
+		return d.DialContext(ctx, network, addr)
+	}
 }
 
 // IsIPv4 returns true when the provided net.IP address is an IPv4 address.

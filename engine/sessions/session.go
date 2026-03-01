@@ -159,6 +159,10 @@ func (s *Session) Pipelines() et.SessionPipelines {
 	return s.pipelines
 }
 
+func (s *Session) Clients() *et.SessionHTTPClients {
+	return nil
+}
+
 func (s *Session) CIDRanger() cidranger.Ranger {
 	return s.ranger
 }

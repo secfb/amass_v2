@@ -8,6 +8,7 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
@@ -31,6 +32,12 @@ type SessionSemaphone interface {
 	Release()
 }
 
+type SessionHTTPClients struct {
+	Default *http.Client
+	Probe   *http.Client
+	Crawl   *http.Client
+}
+
 type Session interface {
 	ID() uuid.UUID
 	Ctx() context.Context
@@ -43,6 +50,7 @@ type Session interface {
 	DB() repository.Repository
 	Backlog() Backlog
 	Pipelines() SessionPipelines
+	Clients() *SessionHTTPClients
 	CIDRanger() cidranger.Ranger
 	TmpDir() string
 	Stats() *SessionStats
