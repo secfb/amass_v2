@@ -14,8 +14,8 @@ import (
 	"github.com/owasp-amass/amass/v5/config"
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
-	"github.com/owasp-amass/amass/v5/internal/net/dns"
-	"github.com/owasp-amass/amass/v5/internal/net/http"
+	amassdns "github.com/owasp-amass/amass/v5/internal/net/dns"
+	amasshttp "github.com/owasp-amass/amass/v5/internal/net/http"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamdns "github.com/owasp-amass/open-asset-model/dns"
@@ -122,13 +122,15 @@ loop:
 			ctx, cancel := context.WithTimeout(e.Session.Ctx(), 5*time.Second)
 			defer cancel()
 
-			resp, err := http.RequestWebPage(ctx, &http.Request{
+			e.Session.NetSem().Acquire()
+			resp, err := amasshttp.RequestWebPage(ctx, e.Session.Clients().General, &amasshttp.Request{
 				URL: url,
-				Auth: &http.BasicAuth{
+				Auth: &amasshttp.BasicAuth{
 					Username: cr.Username,
 					Password: cr.Apikey,
 				},
 			})
+			e.Session.NetSem().Release()
 			if err != nil || resp.Body == "" {
 				continue
 			}
@@ -143,7 +145,7 @@ loop:
 			}
 
 			for _, sub := range result.Subdomains {
-				n := dns.RemoveAsteriskLabel(http.CleanName(sub + "." + name))
+				n := amassdns.RemoveAsteriskLabel(amasshttp.CleanName(sub + "." + name))
 				// if the subdomain is not in scope, skip it
 				if _, conf := e.Session.Scope().IsAssetInScope(&oamdns.FQDN{Name: n}, 0); conf > 0 {
 					names.Insert(n)

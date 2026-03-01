@@ -45,6 +45,7 @@ type Session struct {
 	pipelines    et.SessionPipelines
 	dsn          string
 	dbtype       string
+	clients      *Clients
 	ranger       cidranger.Ranger
 	tmpdir       string
 	stats        *et.SessionStats
@@ -62,6 +63,11 @@ func CreateSession(mgr *manager, reg et.Registry, cfg *config.Config) (et.Sessio
 		cfg = config.NewConfig()
 	}
 
+	clients, err := NewClients(len(cfg.Scope.Ports))
+	if err != nil {
+		return nil, err
+	}
+
 	startTime := time.Now()
 	numOfSessions := mgr.NumOfSessions() + 1
 	ctx, cancel := context.WithCancel(context.Background())
@@ -73,6 +79,7 @@ func CreateSession(mgr *manager, reg et.Registry, cfg *config.Config) (et.Sessio
 		cancel:       cancel,
 		cfg:          cfg,
 		start:        startTime,
+		clients:      clients,
 		ranger:       NewAmassRanger(),
 		ps:           pubsub.NewLogger(),
 		stats:        new(et.SessionStats),
@@ -83,7 +90,7 @@ func CreateSession(mgr *manager, reg et.Registry, cfg *config.Config) (et.Sessio
 	s.scope = scope.CreateFromConfigScope(s)
 	s.log = slog.New(slog.NewJSONHandler(s.ps, nil)).With("session", s.id)
 
-	err := s.setupDB()
+	err = s.setupDB()
 	if err != nil {
 		s.Kill()
 		return nil, err
@@ -160,7 +167,11 @@ func (s *Session) Pipelines() et.SessionPipelines {
 }
 
 func (s *Session) Clients() *et.SessionHTTPClients {
-	return nil
+	return &et.SessionHTTPClients{
+		General: s.clients.General,
+		Probe:   s.clients.Probe,
+		Crawl:   s.clients.Crawl,
+	}
 }
 
 func (s *Session) CIDRanger() cidranger.Ranger {
@@ -189,6 +200,7 @@ func (s *Session) Kill() {
 
 	s.cancel()
 	s.finished = true
+	s.clients.CloseIdleConnections()
 }
 
 func (s *Session) setupDB() error {

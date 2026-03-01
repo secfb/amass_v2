@@ -50,7 +50,7 @@ func TestRequestWebPage(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	resp, err := RequestWebPage(context.TODO(), &Request{
+	resp, err := RequestWebPage(context.TODO(), DefaultClient, &Request{
 		URL:  ts.URL,
 		Auth: &BasicAuth{name, pass},
 	})
@@ -58,7 +58,7 @@ func TestRequestWebPage(t *testing.T) {
 		t.Error("Failed to detect the bad request")
 	}
 
-	resp, err = RequestWebPage(context.TODO(), &Request{
+	resp, err = RequestWebPage(context.TODO(), DefaultClient, &Request{
 		URL:    ts.URL,
 		Method: "POST",
 		Header: Header{hkey: []string{name}},
@@ -72,7 +72,7 @@ func TestRequestWebPage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	resp, err = RequestWebPage(ctx, &Request{URL: ts.URL})
+	resp, err = RequestWebPage(ctx, DefaultClient, &Request{URL: ts.URL})
 	if err == nil || resp != nil {
 		t.Error("Failed to detect the expired context")
 	}

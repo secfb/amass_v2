@@ -15,7 +15,7 @@ import (
 
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
-	"github.com/owasp-amass/amass/v5/internal/net/http"
+	amasshttp "github.com/owasp-amass/amass/v5/internal/net/http"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamcert "github.com/owasp-amass/open-asset-model/certificate"
@@ -106,7 +106,7 @@ func (hp *httpProbing) query(e *et.Event, entity *dbt.Entity, target string, por
 	defer cancel()
 
 	e.Session.NetSem().Acquire()
-	resp, err := http.RequestWebPage(ctx, &http.Request{URL: target})
+	resp, err := amasshttp.RequestWebPage(ctx, e.Session.Clients().Probe, &amasshttp.Request{URL: target})
 	e.Session.NetSem().Release()
 
 	if err == nil && resp != nil {
@@ -115,7 +115,7 @@ func (hp *httpProbing) query(e *et.Event, entity *dbt.Entity, target string, por
 	return findings
 }
 
-func (hp *httpProbing) store(e *et.Event, resp *http.Response, entity *dbt.Entity, port int) []*support.Finding {
+func (hp *httpProbing) store(e *et.Event, resp *amasshttp.Response, entity *dbt.Entity, port int) []*support.Finding {
 	addr := entity.Asset.Key()
 
 	hp.servlock.Lock()
@@ -174,7 +174,7 @@ func (hp *httpProbing) store(e *et.Event, resp *http.Response, entity *dbt.Entit
 	return findings
 }
 
-func (hp *httpProbing) createCertificates(sess et.Session, resp *http.Response) (*dbt.Entity, *x509.Certificate, []*support.Finding) {
+func (hp *httpProbing) createCertificates(sess et.Session, resp *amasshttp.Response) (*dbt.Entity, *x509.Certificate, []*support.Finding) {
 	var findings []*support.Finding
 
 	if resp.TLS == nil || !resp.TLS.HandshakeComplete {

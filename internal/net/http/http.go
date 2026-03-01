@@ -170,7 +170,7 @@ func RespToAmassResponse(resp *http.Response) *Response {
 }
 
 // RequestWebPage returns the response headers, body, and status code for the provided URL when successful.
-func RequestWebPage(ctx context.Context, r *Request) (*Response, error) {
+func RequestWebPage(ctx context.Context, client *http.Client, r *Request) (*Response, error) {
 	if r == nil {
 		return nil, errors.New("failed to provide a valid Amass HTTP request")
 	}
@@ -201,7 +201,7 @@ func RequestWebPage(ctx context.Context, r *Request) (*Response, error) {
 	}
 
 	amassnet.MaxNetConnSem.Acquire()
-	resp, err := DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	amassnet.MaxNetConnSem.Release()
 	if err != nil {
 		return nil, err

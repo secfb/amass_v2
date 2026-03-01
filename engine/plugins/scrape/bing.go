@@ -15,7 +15,7 @@ import (
 	"github.com/caffix/stringset"
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
 	et "github.com/owasp-amass/amass/v5/engine/types"
-	"github.com/owasp-amass/amass/v5/internal/net/http"
+	amasshttp "github.com/owasp-amass/amass/v5/internal/net/http"
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamdns "github.com/owasp-amass/open-asset-model/dns"
@@ -109,7 +109,10 @@ func (b *bing) query(e *et.Event, name string) []*dbt.Entity {
 		ctx, cancel := context.WithTimeout(e.Session.Ctx(), 10*time.Second)
 		defer cancel()
 
-		resp, err := http.RequestWebPage(ctx, &http.Request{URL: fmt.Sprintf(b.fmtstr, i, name, name)})
+		e.Session.NetSem().Acquire()
+		resp, err := amasshttp.RequestWebPage(ctx, e.Session.Clients().General,
+			&amasshttp.Request{URL: fmt.Sprintf(b.fmtstr, i, name, name)})
+		e.Session.NetSem().Release()
 		if err != nil || resp.Body == "" {
 			break
 		}

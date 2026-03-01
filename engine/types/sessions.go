@@ -33,7 +33,7 @@ type SessionSemaphone interface {
 }
 
 type SessionHTTPClients struct {
-	Default *http.Client
+	General *http.Client
 	Probe   *http.Client
 	Crawl   *http.Client
 }

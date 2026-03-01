@@ -12,7 +12,7 @@ import (
 	"time"
 
 	jarm "github.com/caffix/jarm-go"
-	"github.com/owasp-amass/amass/v5/internal/net"
+	amassnet "github.com/owasp-amass/amass/v5/internal/net"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamdns "github.com/owasp-amass/open-asset-model/dns"
 	"github.com/owasp-amass/open-asset-model/general"
@@ -43,7 +43,8 @@ func JARMFingerprint(target oam.Asset, portrel *general.PortRelation) (string, e
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		c, err := net.DialContext(ctx, "tcp", addr)
+		dial := amassnet.NewDialContext(5 * time.Second)
+		c, err := dial(ctx, "tcp", addr)
 		if err != nil {
 			return "", err
 		}
