@@ -121,6 +121,7 @@ func (p *Prospeo) query(e *et.Event, name string) []*dbt.Entity {
 
 	_ = p.rlimit.Wait(e.Session.Ctx())
 	e.Session.NetSem().Acquire()
+
 	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 5*time.Second)
 	defer cancel()
 

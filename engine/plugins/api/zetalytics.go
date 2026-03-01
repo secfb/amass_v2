@@ -119,10 +119,11 @@ func (z *zetalytics) query(e *et.Event, name string, keys []string) []*dbt.Entit
 			"&token=" + key + "&tsfield=last_seen&start=" + strconv.FormatInt(start, 10)
 
 		_ = z.rlimit.Wait(e.Session.Ctx())
+		e.Session.NetSem().Acquire()
+
 		ctx, cancel := context.WithTimeout(e.Session.Ctx(), 5*time.Second)
 		defer cancel()
 
-		e.Session.NetSem().Acquire()
 		resp, err := amasshttp.RequestWebPage(ctx, e.Session.Clients().General, &amasshttp.Request{URL: url})
 		e.Session.NetSem().Release()
 		if err != nil || resp.Body == "" {

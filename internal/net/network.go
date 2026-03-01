@@ -53,17 +53,12 @@ var reservedAddrRanges []*net.IPNet
 
 type Semaphore chan struct{}
 
-var MaxNetConnSem Semaphore
-
 func init() {
 	for _, cidr := range ReservedCIDRs {
 		if _, ipnet, err := net.ParseCIDR(cidr); err == nil {
 			reservedAddrRanges = append(reservedAddrRanges, ipnet)
 		}
 	}
-
-	// setup the semaphore for limiting max network connections
-	MaxNetConnSem = NewSemaphore(MaxNetworkConns)
 }
 
 func NewSemaphore(cap int) Semaphore {

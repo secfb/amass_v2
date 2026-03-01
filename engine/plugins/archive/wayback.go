@@ -101,12 +101,12 @@ func (w *wayback) check(e *et.Event) error {
 
 func (w *wayback) query(e *et.Event, name string) []*dbt.Entity {
 	_ = w.rlimit.Wait(e.Session.Ctx())
-	end := fmt.Sprintf("*.%s/*", name)
+	e.Session.NetSem().Acquire()
 
 	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 30*time.Second)
 	defer cancel()
 
-	e.Session.NetSem().Acquire()
+	end := fmt.Sprintf("*.%s/*", name)
 	resp, err := amasshttp.RequestWebPage(ctx,
 		e.Session.Clients().General, &amasshttp.Request{URL: w.URL + end})
 	e.Session.NetSem().Release()

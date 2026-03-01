@@ -104,10 +104,11 @@ func (d *duckDuckGo) query(e *et.Event, name string) []*dbt.Entity {
 	defer subs.Close()
 
 	_ = d.rlimit.Wait(e.Session.Ctx())
+	e.Session.NetSem().Acquire()
+
 	ctx, cancel := context.WithTimeout(e.Session.Ctx(), 10*time.Second)
 	defer cancel()
 
-	e.Session.NetSem().Acquire()
 	resp, err := amasshttp.RequestWebPage(ctx,
 		e.Session.Clients().General, &amasshttp.Request{URL: fmt.Sprintf(d.fmtstr, name, name)})
 	e.Session.NetSem().Release()

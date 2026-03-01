@@ -118,6 +118,8 @@ loop:
 	for _, key := range keys {
 		for pagenum <= 500 {
 			_ = be.rlimit.Wait(e.Session.Ctx())
+			e.Session.NetSem().Acquire()
+
 			ctx, cancel := context.WithTimeout(e.Session.Ctx(), 5*time.Second)
 			defer cancel()
 
@@ -125,6 +127,7 @@ loop:
 				Header: amasshttp.Header{"X-KEY": []string{key}},
 				URL:    "https://api.binaryedge.io/v2/query/domains/subdomain/" + name + "?page=" + strconv.Itoa(pagenum),
 			})
+			e.Session.NetSem().Release()
 			if err != nil || resp.Body == "" {
 				break
 			}

@@ -105,12 +105,12 @@ type record struct {
 
 func (v *ipverse) query(sess et.Session, asset *dbt.Entity) *record {
 	_ = v.rlimit.Wait(sess.Ctx())
+	sess.NetSem().Acquire()
 	as := asset.Asset.(*oamnet.AutonomousSystem)
 
 	ctx, cancel := context.WithTimeout(sess.Ctx(), 30*time.Second)
 	defer cancel()
 
-	sess.NetSem().Acquire()
 	resp, err := amasshttp.RequestWebPage(ctx,
 		sess.Clients().General, &amasshttp.Request{URL: fmt.Sprintf(v.fmtstr, as.Number)})
 	sess.NetSem().Release()

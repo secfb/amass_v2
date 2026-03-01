@@ -105,11 +105,11 @@ func (sd *siteDossier) query(e *et.Event, name string) []*dbt.Entity {
 
 	for i := 1; i < 20; i++ {
 		_ = sd.rlimit.Wait(e.Session.Ctx())
+		e.Session.NetSem().Acquire()
 
 		ctx, cancel := context.WithTimeout(e.Session.Ctx(), 10*time.Second)
 		defer cancel()
 
-		e.Session.NetSem().Acquire()
 		resp, err := amasshttp.RequestWebPage(ctx,
 			e.Session.Clients().General, &amasshttp.Request{URL: fmt.Sprintf(sd.fmtstr, name, i)})
 		e.Session.NetSem().Release()

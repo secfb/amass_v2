@@ -200,9 +200,7 @@ func RequestWebPage(ctx context.Context, client *http.Client, r *Request) (*Resp
 		}
 	}
 
-	amassnet.MaxNetConnSem.Acquire()
 	resp, err := client.Do(req)
-	amassnet.MaxNetConnSem.Release()
 	if err != nil {
 		return nil, err
 	}
