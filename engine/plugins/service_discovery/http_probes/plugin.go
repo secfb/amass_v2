@@ -8,9 +8,7 @@ import (
 	"context"
 	"crypto/x509"
 	"fmt"
-	"hash/maphash"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/owasp-amass/amass/v5/engine/plugins/support"
@@ -19,18 +17,16 @@ import (
 	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamcert "github.com/owasp-amass/open-asset-model/certificate"
-	"github.com/owasp-amass/open-asset-model/general"
-	"github.com/owasp-amass/open-asset-model/platform"
+	oamgen "github.com/owasp-amass/open-asset-model/general"
+	oamplat "github.com/owasp-amass/open-asset-model/platform"
 )
 
 type httpProbing struct {
-	name     string
-	log      *slog.Logger
-	fqdnend  *fqdnEndpoint
-	ipaddr   *ipaddrEndpoint
-	source   *et.Source
-	hash     maphash.Hash
-	servlock sync.Mutex
+	name    string
+	log     *slog.Logger
+	fqdnend *fqdnEndpoint
+	ipaddr  *ipaddrEndpoint
+	source  *et.Source
 }
 
 func NewHTTPProbing() et.Plugin {
@@ -48,7 +44,6 @@ func (hp *httpProbing) Name() string {
 }
 
 func (hp *httpProbing) Start(r et.Registry) error {
-	hp.hash.SetSeed(maphash.MakeSeed())
 	hp.log = r.Log().WithGroup("plugin").With("name", hp.name)
 
 	hp.fqdnend = &fqdnEndpoint{
@@ -117,10 +112,8 @@ func (hp *httpProbing) query(e *et.Event, entity *dbt.Entity, target string, por
 
 func (hp *httpProbing) store(e *et.Event, resp *amasshttp.Response, entity *dbt.Entity, port int) []*support.Finding {
 	addr := entity.Asset.Key()
+	serv := support.ServiceWithIdentifier(addr, port)
 
-	hp.servlock.Lock()
-	serv := support.ServiceWithIdentifier(&hp.hash, e.Session.ID().String(), addr)
-	hp.servlock.Unlock()
 	serv.Type = "web-service"
 	serv.Output = resp.Body
 	serv.OutputLen = int(resp.Length)
@@ -136,7 +129,7 @@ func (hp *httpProbing) store(e *et.Event, resp *amasshttp.Response, entity *dbt.
 		}
 	}
 
-	portrel := &general.PortRelation{
+	portrel := &oamgen.PortRelation{
 		Name:       fmt.Sprintf("tcp_port_%d", port),
 		PortNumber: port,
 		Protocol:   "TCP",
@@ -147,7 +140,7 @@ func (hp *httpProbing) store(e *et.Event, resp *amasshttp.Response, entity *dbt.
 		return findings
 	}
 
-	serv, valid := s.Asset.(*platform.Service)
+	serv, valid := s.Asset.(*oamplat.Service)
 	if !valid {
 		return findings
 	}
@@ -168,7 +161,7 @@ func (hp *httpProbing) store(e *et.Event, resp *amasshttp.Response, entity *dbt.
 			To:       firstAsset,
 			ToName:   c.SerialNumber,
 			ToMeta:   firstCert,
-			Rel:      &general.SimpleRelation{Name: "certificate"},
+			Rel:      &oamgen.SimpleRelation{Name: "certificate"},
 		})
 	}
 	return findings
@@ -215,7 +208,7 @@ func (hp *httpProbing) createCertificates(sess et.Session, resp *amasshttp.Respo
 				To:       a,
 				ToName:   c.SerialNumber,
 				ToMeta:   cert,
-				Rel:      &general.SimpleRelation{Name: "issuing_certificate"},
+				Rel:      &oamgen.SimpleRelation{Name: "issuing_certificate"},
 			})
 		}
 		prev = a
