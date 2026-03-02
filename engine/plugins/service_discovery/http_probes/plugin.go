@@ -112,7 +112,7 @@ func (hp *httpProbing) query(e *et.Event, entity *dbt.Entity, target string, por
 
 func (hp *httpProbing) store(e *et.Event, resp *amasshttp.Response, entity *dbt.Entity, port int) []*support.Finding {
 	addr := entity.Asset.Key()
-	serv := support.ServiceWithIdentifier(addr, port)
+	serv := support.ServiceWithIdentifier(addr, "tcp", port)
 
 	serv.Type = "web-service"
 	serv.Output = resp.Body

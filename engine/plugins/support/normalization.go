@@ -7,6 +7,7 @@ package support
 import (
 	"crypto/x509"
 	"encoding/hex"
+	"fmt"
 	"hash/fnv"
 	"net/url"
 	"strconv"
@@ -201,12 +202,10 @@ func TimeToJSONString(t *time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05Z07:00")
 }
 
-func ServiceWithIdentifier(address string, port int) *oamplat.Service {
-	pstr := strconv.Itoa(port)
-	name := address + ":" + pstr
-	hashstr := Hash64Hex(name)
+func ServiceWithIdentifier(address, protocol string, port int) *oamplat.Service {
+	name := fmt.Sprintf("%s:%s:%d", address, strings.ToLower(protocol), port)
 
-	return &oamplat.Service{ID: name + ":" + hashstr}
+	return &oamplat.Service{ID: name + "-" + Hash64Hex(name)}
 }
 
 func Hash64Hex(s string) string {
