@@ -233,7 +233,7 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 		provFQDNs = append(provFQDNs, oamdns.FQDN{Name: a})
 
 		if fcount == client.MaxBulkItems {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
 			stored, err := c.CreateAssetsBulk(ctx, token, string(oam.FQDN), provFQDNs)
@@ -247,7 +247,7 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 		}
 	}
 	if fcount > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		if stored, err := c.CreateAssetsBulk(ctx, token, string(oam.FQDN), provFQDNs); err != nil {

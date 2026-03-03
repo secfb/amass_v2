@@ -5,10 +5,10 @@
 package v1
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,14 +20,15 @@ import (
 	"github.com/owasp-amass/amass/v5/config"
 	apiclient "github.com/owasp-amass/amass/v5/engine/api/client"
 	et "github.com/owasp-amass/amass/v5/engine/types"
+	amasshttp "github.com/owasp-amass/amass/v5/internal/net/http"
 	oam "github.com/owasp-amass/open-asset-model"
 )
 
-const MaxBulkItems = 5000
+const MaxBulkItems = 1000
 
 type Client struct {
 	base       string
-	httpClient http.Client
+	httpClient *http.Client
 	wsClient   *websocket.Conn
 	done       chan struct{}
 }
@@ -60,7 +61,7 @@ type BulkAddAssetsResponse struct {
 func NewClient(url string) (*Client, error) {
 	return &Client{
 		base:       url + "/api/v1",
-		httpClient: http.Client{},
+		httpClient: amasshttp.DefaultClient,
 		done:       make(chan struct{}),
 	}, nil
 }
@@ -72,14 +73,10 @@ func (c *Client) Close() {
 
 // HealthCheck returns true when the client was able to reach the server.
 func (c *Client) HealthCheck(ctx context.Context) bool {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/health", nil)
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{URL: c.base + "/health"})
 	if err != nil {
 		return false
 	}
-	defer func() { _ = resp.Body.Close() }()
-
 	return resp.StatusCode == http.StatusOK
 }
 
@@ -90,17 +87,18 @@ func (c *Client) CreateSession(ctx context.Context, config *config.Config) (uuid
 		return uuid.UUID{}, err
 	}
 
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/sessions", bytes.NewReader(raw))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{
+		Method: http.MethodPost,
+		Body:   string(raw),
+		URL:    c.base + "/sessions",
+		Header: amasshttp.Header{"Content-Type": []string{"application/json"}},
+	})
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return uuid.UUID{}, fmt.Errorf("createSession: status=%s", resp.Status)
 		}
@@ -108,7 +106,7 @@ func (c *Client) CreateSession(ctx context.Context, config *config.Config) (uuid
 	}
 
 	var out CreateSessionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.Unmarshal([]byte(resp.Body), &out); err != nil {
 		return uuid.UUID{}, err
 	}
 
@@ -117,16 +115,13 @@ func (c *Client) CreateSession(ctx context.Context, config *config.Config) (uuid
 
 // Lists the active session and associated tokens on the server.
 func (c *Client) ListSessions(ctx context.Context) ([]uuid.UUID, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/sessions/list", nil)
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{URL: c.base + "/sessions/list"})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("listSessions: status=%s", resp.Status)
 		}
@@ -134,7 +129,7 @@ func (c *Client) ListSessions(ctx context.Context) ([]uuid.UUID, error) {
 	}
 
 	var out ListSessionsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.Unmarshal([]byte(resp.Body), &out); err != nil {
 		return nil, err
 	}
 
@@ -151,16 +146,16 @@ func (c *Client) ListSessions(ctx context.Context) ([]uuid.UUID, error) {
 
 // Terminates the session associated with the provided token.
 func (c *Client) TerminateSession(ctx context.Context, token uuid.UUID) error {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodDelete, c.base+"/sessions/"+token.String(), nil)
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{
+		Method: http.MethodDelete,
+		URL:    c.base + "/sessions/" + token.String(),
+	})
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return fmt.Errorf("terminateSession: status=%s", resp.Status)
 		}
@@ -171,16 +166,14 @@ func (c *Client) TerminateSession(ctx context.Context, token uuid.UUID) error {
 
 // Retrieves statistics for the session associated with the provided token.
 func (c *Client) SessionStats(ctx context.Context, token uuid.UUID) (*et.SessionStats, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/sessions/"+token.String()+"/stats", nil)
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient,
+		&amasshttp.Request{URL: c.base + "/sessions/" + token.String() + "/stats"})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("%s/stats: status=%s", token.String(), resp.Status)
 		}
@@ -188,7 +181,7 @@ func (c *Client) SessionStats(ctx context.Context, token uuid.UUID) (*et.Session
 	}
 
 	var st et.SessionStats
-	if err := json.NewDecoder(resp.Body).Decode(&st); err != nil {
+	if err := json.Unmarshal([]byte(resp.Body), &st); err != nil {
 		return nil, err
 	}
 	return &st, nil
@@ -199,23 +192,24 @@ func (c *Client) SessionScope(ctx context.Context, token uuid.UUID, atype oam.As
 	sessionID := token.String()
 	atypestr := strings.ToLower(string(atype))
 	u := fmt.Sprintf("%s/sessions/%s/scope/%s", c.base, sessionID, atypestr)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{URL: u})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("%s/scope: status=%s", token.String(), resp.Status)
 		}
 		return nil, fmt.Errorf("%s/scope: status=%s error=%s", token.String(), resp.Status, msg)
 	}
 
-	return apiclient.DecodeAssetsForScopeEndpoint(atype, resp.Body)
+	reader := strings.NewReader(resp.Body)
+	readCloser := io.NopCloser(reader)
+	defer func() { _ = readCloser.Close() }()
+
+	return apiclient.DecodeAssetsForScopeEndpoint(atype, readCloser)
 }
 
 // Creates a new asset on the server associated with the provided token.
@@ -228,17 +222,18 @@ func (c *Client) CreateAsset(ctx context.Context, token uuid.UUID, asset oam.Ass
 
 	sessionID := token.String()
 	u := fmt.Sprintf("%s/sessions/%s/assets/%s", c.base, sessionID, atype)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(raw))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{
+		URL:    u,
+		Body:   string(raw),
+		Method: http.MethodPost,
+		Header: amasshttp.Header{"Content-Type": []string{"application/json"}},
+	})
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return "", fmt.Errorf("createAsset: status=%s", resp.Status)
 		}
@@ -246,7 +241,7 @@ func (c *Client) CreateAsset(ctx context.Context, token uuid.UUID, asset oam.Ass
 	}
 
 	var r AddAssetResponse
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+	if err := json.Unmarshal([]byte(resp.Body), &r); err != nil {
 		return "", err
 	}
 	return r.EntityID, nil
@@ -277,20 +272,20 @@ func (c *Client) CreateAssetsBulk(ctx context.Context, token uuid.UUID, atype st
 	}
 
 	sessionID := token.String()
-	u := fmt.Sprintf("%s/sessions/%s/assets/%s:bulk", c.base, sessionID, atype)
-
 	body, _ := json.Marshal(BulkAddAssetsRequest{Items: items})
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
+	u := fmt.Sprintf("%s/sessions/%s/assets/%s:bulk", c.base, sessionID, atype)
+	resp, err := amasshttp.RequestWebPage(ctx, c.httpClient, &amasshttp.Request{
+		URL:    u,
+		Body:   string(body),
+		Method: http.MethodPost,
+		Header: amasshttp.Header{"Content-Type": []string{"application/json"}},
+	})
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		msg, err := readJSONError(resp)
+		msg, err := readJSONError(resp.Body)
 		if err != nil {
 			return 0, fmt.Errorf("addAssetsBulk: status=%s", resp.Status)
 		}
@@ -298,7 +293,7 @@ func (c *Client) CreateAssetsBulk(ctx context.Context, token uuid.UUID, atype st
 	}
 
 	var out BulkAddAssetsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.Unmarshal([]byte(resp.Body), &out); err != nil {
 		return 0, err
 	}
 	return int(out.Stored), nil
@@ -355,11 +350,11 @@ func (c *Client) Subscribe(ctx context.Context, token uuid.UUID) (<-chan string,
 	return ch, nil
 }
 
-func readJSONError(resp *http.Response) (string, error) {
+func readJSONError(content string) (string, error) {
 	var errResp struct {
 		Message string `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+	if err := json.Unmarshal([]byte(content), &errResp); err != nil {
 		return "", err
 	}
 	return errResp.Message, nil

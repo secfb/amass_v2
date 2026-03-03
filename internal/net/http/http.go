@@ -176,8 +176,8 @@ func RequestWebPage(ctx context.Context, client *http.Client, r *Request) (*Resp
 	}
 
 	if r.Method == "" {
-		r.Method = "GET"
-	} else if r.Method != "GET" && r.Method != "POST" {
+		r.Method = http.MethodGet
+	} else if r.Method != http.MethodGet && r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		return nil, errors.New("failed to provide a valid HTTP method")
 	}
 
