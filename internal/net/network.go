@@ -86,7 +86,10 @@ type DialContext func(ctx context.Context, network, addr string) (net.Conn, erro
 
 // NewDialContext performs the dial using global variables (e.g. LocalAddr).
 func NewDialContext(timeout time.Duration) DialContext {
-	d := &net.Dialer{Timeout: timeout}
+	d := &net.Dialer{
+		Timeout:   timeout,
+		KeepAlive: 30 * time.Second,
+	}
 
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		_, p, err := net.SplitHostPort(addr)
