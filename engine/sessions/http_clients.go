@@ -93,9 +93,9 @@ func newProbeTransport(perHost int) *http.Transport {
 		DialContext:       amassnet.NewDialContext(2 * time.Second),
 		ForceAttemptHTTP2: true,
 		// keep this lower: probes spray across many hosts; idle pools become “memory”
-		MaxIdleConns:          perHost * 4,
+		MaxIdleConns:          100,
 		MaxIdleConnsPerHost:   perHost,
-		MaxConnsPerHost:       perHost,
+		MaxConnsPerHost:       perHost * 3,
 		IdleConnTimeout:       5 * time.Second,
 		TLSHandshakeTimeout:   3 * time.Second,
 		ExpectContinueTimeout: 0,
