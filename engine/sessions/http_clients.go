@@ -74,10 +74,10 @@ func newGeneralTransport() *http.Transport {
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          200,
 		MaxIdleConnsPerHost:   20,
-		MaxConnsPerHost:       50,
+		MaxConnsPerHost:       100,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   5 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
+		ExpectContinueTimeout: 4 * time.Second,
 		ResponseHeaderTimeout: 8 * time.Second,
 		// prefer correct TLS verification for APIs
 		TLSClientConfig: &tls.Config{
@@ -119,7 +119,7 @@ func newCrawlTransport() *http.Transport {
 		// crawling usually hits same hosts repeatedly; keep-alives pay off
 		MaxIdleConns:          512,
 		MaxIdleConnsPerHost:   32,
-		MaxConnsPerHost:       32,
+		MaxConnsPerHost:       128,
 		IdleConnTimeout:       120 * time.Second,
 		TLSHandshakeTimeout:   6 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
