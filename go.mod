@@ -14,9 +14,8 @@ require (
 	github.com/caffix/queue v0.4.1-0.20260303044231-38e3190f084d
 	github.com/caffix/stringset v0.2.1-0.20260303044338-0122c4694af1
 	github.com/cheggaaa/pb/v3 v3.1.7
-	github.com/fatih/color v1.18.0
+	github.com/fatih/color v1.19.0
 	github.com/geziyor/geziyor v0.0.0-20240812061556-229b8ca83ac1
-	github.com/go-ini/ini v1.67.0
 	github.com/google/uuid v1.6.1-0.20241114170450-2d3c2a9cc518
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.3
@@ -24,22 +23,23 @@ require (
 	github.com/likexian/whois v1.15.7
 	github.com/likexian/whois-parser v1.24.21
 	github.com/miekg/dns v1.1.72
-	github.com/nyaruka/phonenumbers v1.6.11
+	github.com/nyaruka/phonenumbers v1.6.12
 	github.com/openrdap/rdap v0.9.1
 	github.com/owasp-amass/asset-db v0.24.3
 	github.com/owasp-amass/open-asset-model v0.15.1-0.20260306015734-5261c591eef2
 	github.com/owasp-amass/resolve v0.10.0
 	github.com/pioz/countries v0.2.2
-	github.com/samber/slog-common v0.20.0
-	github.com/samber/slog-syslog/v2 v2.5.3
+	github.com/samber/slog-common v0.21.0
+	github.com/samber/slog-syslog/v2 v2.5.4
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
 	github.com/tylertreat/BoomFilters v0.0.0-20251117164519-53813c36cc1b
 	github.com/yl2chen/cidranger v1.0.2
 	golang.org/x/net v0.52.0
 	golang.org/x/time v0.15.0
+	gopkg.in/ini.v1 v1.67.1
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.46.2
+	modernc.org/sqlite v1.48.0
 	mvdan.cc/xurls/v2 v2.6.0
 )
 
@@ -54,8 +54,8 @@ require (
 	github.com/apache/arrow-go/v18 v18.5.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d // indirect
-	github.com/chromedp/chromedp v0.14.2 // indirect
+	github.com/chromedp/cdproto v0.0.0-20260328224638-b7b298a31867 // indirect
+	github.com/chromedp/chromedp v0.15.1 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/d4l3k/messagediff v1.2.1 // indirect
@@ -83,9 +83,9 @@ require (
 	github.com/influxdata/line-protocol/v2 v2.2.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.8.1-0.20260301001513-2c625120dbce // indirect
+	github.com/jackc/pgx/v5 v5.9.1 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/likexian/gokit v0.25.16 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -119,8 +119,8 @@ require (
 	golang.org/x/text v0.35.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
-	google.golang.org/grpc v1.79.2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260330182312-d5a96adf58d8 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
