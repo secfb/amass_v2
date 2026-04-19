@@ -22,7 +22,9 @@ import (
 	client "github.com/owasp-amass/amass/v5/engine/api/client/v1"
 	et "github.com/owasp-amass/amass/v5/engine/types"
 	"github.com/owasp-amass/amass/v5/internal/afmt"
+	amassdb "github.com/owasp-amass/amass/v5/internal/db"
 	"github.com/owasp-amass/amass/v5/internal/tools"
+	dbt "github.com/owasp-amass/asset-db/types"
 	oam "github.com/owasp-amass/open-asset-model"
 	oamdns "github.com/owasp-amass/open-asset-model/dns"
 	oamorg "github.com/owasp-amass/open-asset-model/org"
@@ -80,6 +82,7 @@ type Args struct {
 		LogFile       string
 		Names         afmt.ParseStrings
 		Resolvers     afmt.ParseStrings
+		TextOutput    string
 	}
 }
 
@@ -130,6 +133,7 @@ func defineOptionFlags(fs *flag.FlagSet, args *Args) {
 
 func defineFilepathFlags(fs *flag.FlagSet, args *Args) {
 	fs.StringVar(&args.Filepaths.AllFilePrefix, "oA", "", "Path prefix used for naming all output files")
+	fs.StringVar(&args.Filepaths.TextOutput, "o", "", "Path to the text file where discovered names will be written")
 	fs.Var(&args.Filepaths.AltWordlist, "aw", "Path to a different wordlist file for alterations")
 	fs.StringVar(&args.Filepaths.Blacklist, "blf", "", "Path to a file providing blacklisted subdomains")
 	fs.Var(&args.Filepaths.BruteWordlist, "w", "Path to a different wordlist file for brute forcing")
@@ -322,6 +326,9 @@ func CLIWorkflow(cmdName string, clArgs []string) {
 		progress.Finish()
 		fmt.Printf("\nSession Scope\n")
 		printScope(c, token)
+		printSubdomains(cfg, args.Filepaths.TextOutput)
+	} else if args.Filepaths.TextOutput != "" {
+		printSubdomains(cfg, args.Filepaths.TextOutput)
 	}
 }
 
@@ -512,6 +519,69 @@ func printScope(c *client.Client, token uuid.UUID) {
 			}
 
 			fmt.Println(name)
+		}
+	}
+}
+
+func printSubdomains(cfg *config.Config, outFile string) {
+	db := tools.OpenGraphDatabase(cfg)
+	if db == nil {
+		return
+	}
+
+	domains := cfg.Domains()
+	if len(domains) == 0 {
+		return
+	}
+
+	qtime := time.Time{}
+	filter := stringset.New()
+	defer filter.Close()
+
+	var assets []*dbt.Entity
+	for _, d := range domains {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if ents, err := db.FindEntitiesByContent(ctx, oam.FQDN, qtime, 1, dbt.ContentFilters{
+			"name": d,
+		}); err == nil && len(ents) > 0 {
+			if n, err := amassdb.FindByFQDNScope(ctx, db, ents[0], qtime); err == nil && len(n) > 0 {
+				assets = append(assets, n...)
+			}
+		}
+	}
+
+	if len(assets) == 0 {
+		return
+	}
+
+	var names []string
+	for _, a := range assets {
+		if n, ok := a.Asset.(*oamdns.FQDN); ok && !filter.Has(n.Name) {
+			names = append(names, n.Name)
+			filter.Insert(n.Name)
+		}
+	}
+
+	if len(names) == 0 {
+		return
+	}
+
+	fmt.Printf("\nDiscovered Subdomains:\n\n")
+	for _, name := range names {
+		fmt.Println(name)
+	}
+
+	if outFile != "" {
+		f, err := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err == nil {
+			defer f.Close()
+			for _, name := range names {
+				_, _ = f.WriteString(name + "\n")
+			}
+		} else {
+			_, _ = afmt.R.Fprintf(color.Error, "Failed to open output file: %v\n", err)
 		}
 	}
 }
