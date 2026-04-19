@@ -16,6 +16,14 @@
 
 <img width="770" height="637" alt="image" src="https://github.com/user-attachments/assets/32f46a6c-b542-439f-9cc5-7cbcd447c408" />
 
+All features of Amass are working. In this study, only the -o parameter in the enum has been added.
+
+**Usage Command**
+
+`amass enum -d owasp.org -o owasp-amass.txt `
+`amass enum -d owasp.org -o owasp-amass.txt -active`
+`amass enum -d owasp.org -o owasp-amass.txt -passive`
+`amass enum -d owasp.org -o owasp-amass.txt  -silent`
 
 ----------
 
