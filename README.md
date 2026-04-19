@@ -7,6 +7,18 @@
 [![Follow on Twitter](https://img.shields.io/twitter/follow/owaspamass.svg?logo=twitter)](https://twitter.com/owaspamass)
 [![Chat on Discord](https://img.shields.io/discord/433729817918308352.svg?logo=discord)](https://discord.gg/ANTyEDUXt5)
 
+----------
+#Note
+`In previous versions of Amass, it was no longer possible to save the normal subdomain output to a text file using the enum attribute. This feature has been added in this version by editing the cli.go file.`
+
+##Amass Enum Output Version
+<img width="845" height="628" alt="image" src="https://github.com/user-attachments/assets/d822331c-b8ed-42fe-890d-a2d1c2c0df64" />
+
+<img width="770" height="637" alt="image" src="https://github.com/user-attachments/assets/32f46a6c-b542-439f-9cc5-7cbcd447c408" />
+
+
+----------
+
 The OWASP Amass Project performs network mapping of attack surfaces and external asset discovery using open source information gathering and active reconnaissance techniques.
 
 ## Installation [![Go Version](https://img.shields.io/github/go-mod/go-version/owasp-amass/amass)](https://golang.org/dl/) [![Docker Image](https://img.shields.io/docker/pulls/owaspamass/amass.svg)](https://hub.docker.com/r/owaspamass/amass) [![GitHub Downloads](https://img.shields.io/github/downloads/owasp-amass/amass/latest/total.svg)](https://github.com/owasp-amass/amass/releases/latest)
